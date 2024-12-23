@@ -33,7 +33,7 @@ const verifyJWT = (req, res, next) => {
 // Admin Role Middleware
 const verifyAdmin = async (req, res, next) => {
     try {
-        const user = await client.db("Bus-Ticket").collection('users').findOne({ _id: new ObjectId(req.user.id) });
+        const user = await client.db("PATH-FINDER").collection('users').findOne({ _id: new ObjectId(req.user.id) });
         if (user && user.role === 'admin') {
             next();
         } else {
