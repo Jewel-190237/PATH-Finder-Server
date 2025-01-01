@@ -99,13 +99,12 @@ async function run() {
     // Route to approve user status
     app.put("/users/:id/approve", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      const role = req.body.role; // Optional if only updating subRole
+      const role = req.body.role;
       const query = { _id: new ObjectId(id) };
 
-      // Determine the update operation
       const update = role
-        ? { $set: { subRole: role } } // Update subRole if role is provided
-        : { $set: { status: "approved" } }; // Update status if no role is provided
+        ? { $set: { subRole: role } } 
+        : { $set: { status: "approved" } }; 
 
       try {
         const result = await userCollections.updateOne(query, update);
@@ -162,7 +161,7 @@ async function run() {
         userToken = token;
         res
           .status(200)
-          .send({ message: "Login successful", token, userId: user._id });
+          .send({ message: "Login successful", token, userId: user._id, role: user.role, subRole: user.subRole });
       } catch (error) {
         res.status(500).send({ message: "Login failed", error });
       }
@@ -233,8 +232,8 @@ async function run() {
       try {
         const user = await userCollections.findOne({ _id: new ObjectId(id) });
         if (user) {
-          const { name, phone, role, subRole, status } = user;
-          res.status(200).send({ name, phone, role, subRole, status });
+          const {_id, name, phone, role, subRole, status } = user;
+          res.status(200).send({_id, name, phone, role, subRole, status });
         } else {
           res.status(404).send({ message: "User not found" });
         }
@@ -244,7 +243,7 @@ async function run() {
     });
 
     // Get all users (admin-only access)
-    app.get("/users", verifyJWT, verifyAdmin, async (req, res) => {
+    app.get("/users", verifyJWT, async (req, res) => {
       try {
         const user = userCollections.find();
         const result = await user.toArray();
