@@ -103,8 +103,8 @@ async function run() {
       const query = { _id: new ObjectId(id) };
 
       const update = role
-        ? { $set: { subRole: role } } 
-        : { $set: { status: "approved" } }; 
+        ? { $set: { subRole: role } }
+        : { $set: { status: "approved" } };
 
       try {
         const result = await userCollections.updateOne(query, update);
@@ -161,9 +161,55 @@ async function run() {
         userToken = token;
         res
           .status(200)
-          .send({ message: "Login successful", token, userId: user._id, role: user.role, subRole: user.subRole });
+          .send({
+            message: "Login successful",
+            token,
+            userId: user._id,
+            role: user.role,
+            subRole: user.subRole,
+          });
       } catch (error) {
         res.status(500).send({ message: "Login failed", error });
+      }
+    });
+
+    // add task to specific user
+    app.post("/add-task", verifyJWT, async (req, res) => {
+      const { userId, taskName, taskDescription } = req.body;
+
+      if (!userId || !taskName || !taskDescription) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      try {
+        const user = await userCollections.findOne({
+          _id: new ObjectId(userId),
+        });
+
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        // Update the user's tasks array
+        const updatedTasks = user.tasks || [];
+        updatedTasks.push({ taskName, taskDescription });
+
+        const result = await userCollections.updateOne(
+          { _id: new ObjectId(userId) },
+          { $set: { tasks: updatedTasks } },
+          { $set: { taskStatus: "pending" } }
+        );
+
+        if (result.modifiedCount === 1) {
+          res
+            .status(200)
+            .json({ message: "Task added successfully", tasks: updatedTasks });
+        } else {
+          res.status(500).json({ message: "Failed to add task" });
+        }
+      } catch (error) {
+        console.error("Error adding task:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
     });
 
@@ -226,14 +272,14 @@ async function run() {
       }
     });
 
-    // get user role and subRole for Dashboard access
+    // get user and role and subRole for Dashboard access
     app.get("/get-user-role/:id", async (req, res) => {
       const id = req.params.id;
       try {
         const user = await userCollections.findOne({ _id: new ObjectId(id) });
         if (user) {
-          const {_id, name, phone, role, subRole, status } = user;
-          res.status(200).send({_id, name, phone, role, subRole, status });
+          const { _id, name, phone, role, subRole, status, tasks } = user;
+          res.status(200).send({ _id, name, phone, role, subRole, status, tasks });
         } else {
           res.status(404).send({ message: "User not found" });
         }
@@ -253,17 +299,6 @@ async function run() {
       }
     });
 
-    // Fetch master users for discount option
-    app.get("/master-users", async (req, res) => {
-      try {
-        const masterUsers = await userCollections
-          .find({ role: "master", status: "approved" })
-          .toArray();
-        res.status(200).send(masterUsers);
-      } catch (error) {
-        res.status(500).send({ message: "Error fetching master users", error });
-      }
-    });
 
     // Delete a specific user (admin-only access)
     app.delete("/users/:id", verifyJWT, verifyAdmin, async (req, res) => {
