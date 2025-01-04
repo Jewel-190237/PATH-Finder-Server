@@ -7,6 +7,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const PORT = process.env.PORT || 5000;
 const nodemailer = require("nodemailer");
+const e = require("express");
 
 // MiddleWare
 app.use(cors());
@@ -85,14 +86,30 @@ async function run() {
           .status(409)
           .send({ message: "User already exists. Please login." });
       }
-
-      // Set status as 'pending' if the role is 'master'
       if (user.role === "subAdmin") {
         user.status = "pending";
       }
+      if (user.code == 123465) {
+        user.subAdmin = "CEO";
+      } else if (user.code == 123456) {
+        user.subAdmin = "Marketing Panel";
+      } else if (user.code == 134456) {
+        user.subAdmin = "Marketing Executive";
+      } else if (user.code == 126756) {
+        user.subAdmin = "Skill Strategist";
+      } else if (user.code == 128656) {
+        user.subAdmin = "Skill Specialist";
+      } else if (user.code == 123956) {
+        user.subAdmin = "Dev Advisor";
+      } else if (user.code == 123466) {
+        user.subAdmin = "Sales Director";
+      } else if (user.code == 123467) {
+        user.subAdmin = "Virtual assistant";
+      } else {
+        user.subAdmin = "";
+      }
 
       const result = await userCollections.insertOne(user);
-      console.log("Login", user);
       res.status(200).send(result);
     });
 
@@ -159,15 +176,13 @@ async function run() {
           { expiresIn: "15d" }
         );
         userToken = token;
-        res
-          .status(200)
-          .send({
-            message: "Login successful",
-            token,
-            userId: user._id,
-            role: user.role,
-            subRole: user.subRole,
-          });
+        res.status(200).send({
+          message: "Login successful",
+          token,
+          userId: user._id,
+          role: user.role,
+          subRole: user.subRole,
+        });
       } catch (error) {
         res.status(500).send({ message: "Login failed", error });
       }
@@ -279,7 +294,9 @@ async function run() {
         const user = await userCollections.findOne({ _id: new ObjectId(id) });
         if (user) {
           const { _id, name, phone, role, subRole, status, tasks } = user;
-          res.status(200).send({ _id, name, phone, role, subRole, status, tasks });
+          res
+            .status(200)
+            .send({ _id, name, phone, role, subRole, status, tasks });
         } else {
           res.status(404).send({ message: "User not found" });
         }
@@ -298,7 +315,6 @@ async function run() {
         res.status(500).send({ message: "Error fetching users", error });
       }
     });
-
 
     // Delete a specific user (admin-only access)
     app.delete("/users/:id", verifyJWT, verifyAdmin, async (req, res) => {
