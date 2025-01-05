@@ -89,26 +89,29 @@ async function run() {
       if (user.role === "subAdmin") {
         user.status = "pending";
       }
-      if (user.code == 123465) {
-        user.subAdmin = "CEO";
-      } else if (user.code == 123456) {
-        user.subAdmin = "Marketing Panel";
-      } else if (user.code == 134456) {
-        user.subAdmin = "Marketing Executive";
-      } else if (user.code == 126756) {
-        user.subAdmin = "Skill Strategist";
-      } else if (user.code == 128656) {
-        user.subAdmin = "Skill Specialist";
-      } else if (user.code == 123956) {
-        user.subAdmin = "Dev Advisor";
-      } else if (user.code == 123466) {
-        user.subAdmin = "Sales Director";
-      } else if (user.code == 123467) {
-        user.subAdmin = "Virtual assistant";
-      } else {
-        user.subAdmin = "";
-      }
 
+      if (user.role === "student") {
+        if (user.code == 123465) {
+          user.subAdmin = "CEO";
+        } else if (user.code == 123456) {
+          user.subAdmin = "Marketing Panel";
+        } else if (user.code == 134456) {
+          user.subAdmin = "Marketing Executive";
+        } else if (user.code == 126756) {
+          user.subAdmin = "Skill Strategist";
+        } else if (user.code == 128656) {
+          user.subAdmin = "Skill Specialist";
+        } else if (user.code == 123956) {
+          user.subAdmin = "Dev Advisor";
+        } else if (user.code == 123466) {
+          user.subAdmin = "Sales Director";
+        } else if (user.code == 123467) {
+          user.subAdmin = "Virtual assistant";
+        } else {
+          user.subAdmin = "";
+        }
+      }
+      
       const result = await userCollections.insertOne(user);
       res.status(200).send(result);
     });
