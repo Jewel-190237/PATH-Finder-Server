@@ -111,7 +111,7 @@ async function run() {
           user.subAdmin = "";
         }
       }
-      
+
       const result = await userCollections.insertOne(user);
       res.status(200).send(result);
     });
@@ -193,13 +193,15 @@ async function run() {
 
     // add task to specific user
     app.post("/add-task", verifyJWT, async (req, res) => {
-      const { userId, taskName, taskDescription } = req.body;
+      const { userId, taskName, taskDescription, coin } = req.body;
 
-      if (!userId || !taskName || !taskDescription) {
+      // Validate required fields
+      if (!userId || !taskName || !taskDescription || !coin) {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
       try {
+        // Find user by ID
         const user = await userCollections.findOne({
           _id: new ObjectId(userId),
         });
@@ -208,20 +210,25 @@ async function run() {
           return res.status(404).json({ message: "User not found" });
         }
 
-        // Update the user's tasks array
-        const updatedTasks = user.tasks || [];
-        updatedTasks.push({ taskName, taskDescription });
+        // Construct the new task
+        const newTask = {
+          _id: new ObjectId(),
+          taskName,
+          taskDescription,
+          coin,
+          taskStatus: "pending", // Assign taskStatus here
+        };
 
+        // Add the task to the user's tasks array
         const result = await userCollections.updateOne(
           { _id: new ObjectId(userId) },
-          { $set: { tasks: updatedTasks } },
-          { $set: { taskStatus: "pending" } }
+          { $push: { tasks: newTask } } // Use $push for arrays
         );
 
         if (result.modifiedCount === 1) {
           res
             .status(200)
-            .json({ message: "Task added successfully", tasks: updatedTasks });
+            .json({ message: "Task added successfully", task: newTask });
         } else {
           res.status(500).json({ message: "Failed to add task" });
         }
@@ -308,14 +315,41 @@ async function run() {
       }
     });
 
-    // Get all users (admin-only access)
-    app.get("/users", verifyJWT, async (req, res) => {
+    // Get all users
+    app.get("/users", async (req, res) => {
       try {
         const user = userCollections.find();
         const result = await user.toArray();
         res.status(200).send(result);
       } catch (error) {
         res.status(500).send({ message: "Error fetching users", error });
+      }
+    });
+
+    // update users name, phone and code
+    app.put("/specific-users/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const { name, phone, code } = req.body;
+
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: { name, phone, code },
+      };
+
+      try {
+        const result = await userCollections.updateOne(query, updateDoc);
+        if (result.modifiedCount === 1) {
+          res
+            .status(200)
+            .send({ success: true, message: "User updated successfully" });
+        } else {
+          res.status(404).send({ success: false, message: "User not found" });
+        }
+      } catch (error) {
+        console.error("Error updating user:", error);
+        res
+          .status(500)
+          .send({ success: false, message: "Error updating user", error });
       }
     });
 
@@ -608,16 +642,6 @@ async function run() {
           .send({ message: "Failed to delete order or seat data" });
       }
     });
-
-
-    // delete a specific user access only admin
-    app.delete("/users/:id", verifyJWT, verifyAdmin, async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await userCollections.deleteOne(query);
-      res.send(result);
-    });
-
 
     await client.db("admin").command({ ping: 1 });
     console.log(
