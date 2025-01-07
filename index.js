@@ -238,6 +238,48 @@ async function run() {
       }
     });
 
+    app.put("/handle-task/:id", verifyJWT, async (req, res) => {
+      const taskId = req.params.id;
+      const { userId, coin, action } = req.body;
+
+      if (!["accept", "decline"].includes(action)) {
+        return res.status(400).json({ message: "Invalid action" });
+      }
+
+      try {
+        // Base query to find the user and task
+        const query = {
+          _id: new ObjectId(userId),
+          "tasks._id": new ObjectId(taskId),
+        };
+
+        // Set update operation based on action
+        const update =
+          action === "accept"
+            ? {
+                $inc: { coins: parseInt(coin, 10) },
+                $set: { "tasks.$.taskStatus": "accepted" },
+              }
+            : {
+                $set: { "tasks.$.taskStatus": "rejected" },
+              };
+
+        // Execute the update
+        const result = await userCollections.updateOne(query, update);
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "Task or user not found" });
+        }
+
+        res.status(200).json({
+          message: `Task successfully ${action}ed`,
+        });
+      } catch (error) {
+        console.error(`Error handling task (${action}):`, error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
     // Check user authentication status
     app.get("/auth-status", verifyJWT, async (req, res) => {
       res.status(200).send({ isLoggedIn: true, role: req.user.role });
