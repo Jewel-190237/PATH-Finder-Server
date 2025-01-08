@@ -72,8 +72,8 @@ async function run() {
     const allocatedSeatCollections = client
       .db("Bus-Ticket")
       .collection("allocatedSeat");
-    const busCollections = client.db("Bus-Ticket").collection("buses");
-    const routeCollections = client.db("Bus-Ticket").collection("routes");
+    // const busCollections = client.db("Bus-Ticket").collection("buses");
+    // const routeCollections = client.db("Bus-Ticket").collection("routes");
 
     // Create user (sign-up)
     app.post("/users", async (req, res) => {
@@ -88,28 +88,6 @@ async function run() {
       }
       if (user.role === "subAdmin") {
         user.status = "pending";
-      }
-
-      if (user.role === "student") {
-        if (user.code == 123465) {
-          user.subAdmin = "CEO";
-        } else if (user.code == 123456) {
-          user.subAdmin = "Marketing Panel";
-        } else if (user.code == 134456) {
-          user.subAdmin = "Marketing Executive";
-        } else if (user.code == 126756) {
-          user.subAdmin = "Skill Strategist";
-        } else if (user.code == 128656) {
-          user.subAdmin = "Skill Specialist";
-        } else if (user.code == 123956) {
-          user.subAdmin = "Dev Advisor";
-        } else if (user.code == 123466) {
-          user.subAdmin = "Sales Director";
-        } else if (user.code == 123467) {
-          user.subAdmin = "Virtual assistant";
-        } else {
-          user.subAdmin = "";
-        }
       }
 
       const result = await userCollections.insertOne(user);
@@ -345,10 +323,10 @@ async function run() {
       try {
         const user = await userCollections.findOne({ _id: new ObjectId(id) });
         if (user) {
-          const { _id, name, phone, role, subRole, status, tasks } = user;
+          const { _id, name, phone, role, subRole, status, tasks, coins } = user;
           res
             .status(200)
-            .send({ _id, name, phone, role, subRole, status, tasks });
+            .send({ _id, name, phone, role, subRole, status, tasks, coins });
         } else {
           res.status(404).send({ message: "User not found" });
         }
