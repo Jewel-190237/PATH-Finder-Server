@@ -216,6 +216,7 @@ async function run() {
       }
     });
 
+    //handle task, accept, decline, and increase coins and levelJ
     app.put("/handle-task/:id", verifyJWT, async (req, res) => {
       const taskId = req.params.id;
       const { userId, coin, action } = req.body;
@@ -225,24 +226,44 @@ async function run() {
       }
 
       try {
-        // Base query to find the user and task
         const query = {
           _id: new ObjectId(userId),
           "tasks._id": new ObjectId(taskId),
         };
 
-        // Set update operation based on action
+        // Find the user to get the current coin count
+        const user = await userCollections.findOne({
+          _id: new ObjectId(userId),
+        });
+
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+
+        const existingCoins = user.coins || 0;
+        const newCoins =
+          action === "accept"
+            ? existingCoins + parseInt(coin, 10)
+            : existingCoins;
+
+        // Calculate the new level based on total coins
+        const newLevel = Math.floor(newCoins / 100);
+
+        // Build the update operation
         const update =
           action === "accept"
             ? {
                 $inc: { coins: parseInt(coin, 10) },
-                $set: { "tasks.$.taskStatus": "accepted" },
+                $set: {
+                  "tasks.$.taskStatus": "accepted",
+                  ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
+                },
               }
             : {
                 $set: { "tasks.$.taskStatus": "rejected" },
               };
 
-        // Execute the update
+        // Update the user
         const result = await userCollections.updateOne(query, update);
 
         if (result.matchedCount === 0) {
@@ -251,6 +272,7 @@ async function run() {
 
         res.status(200).json({
           message: `Task successfully ${action}ed`,
+          level: newLevel,
         });
       } catch (error) {
         console.error(`Error handling task (${action}):`, error);
@@ -323,7 +345,8 @@ async function run() {
       try {
         const user = await userCollections.findOne({ _id: new ObjectId(id) });
         if (user) {
-          const { _id, name, phone, role, subRole, status, tasks, coins } = user;
+          const { _id, name, phone, role, subRole, status, tasks, coins } =
+            user;
           res
             .status(200)
             .send({ _id, name, phone, role, subRole, status, tasks, coins });
