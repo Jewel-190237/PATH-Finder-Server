@@ -1,13 +1,13 @@
 const express = require("express");
 const app = express();
 const SSLCommerzPayment = require("sslcommerz-lts");
+const { createPayment, executePayment, quearyPayment } = require("bkash-payment");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const PORT = process.env.PORT || 5000;
 const nodemailer = require("nodemailer");
-const e = require("express");
 
 // MiddleWare
 app.use(cors());
@@ -68,12 +68,11 @@ const is_live = false;
 async function run() {
   try {
     const userCollections = client.db("PATH-FINDER").collection("users");
-    const orderCollections = client.db("Bus-Ticket").collection("orders");
+    const OrderCollection = client.db("PATH-FINDER").collection("ordrers");
+    const busOrderCollection = client.db("Bus-Ticket").collection("orders");
     const allocatedSeatCollections = client
       .db("Bus-Ticket")
       .collection("allocatedSeat");
-    // const busCollections = client.db("Bus-Ticket").collection("buses");
-    // const routeCollections = client.db("Bus-Ticket").collection("routes");
 
     // Create user (sign-up)
     app.post("/users", async (req, res) => {
@@ -253,15 +252,15 @@ async function run() {
         const update =
           action === "accept"
             ? {
-                $inc: { coins: parseInt(coin, 10) },
-                $set: {
-                  "tasks.$.taskStatus": "accepted",
-                  ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
-                },
-              }
+              $inc: { coins: parseInt(coin, 10) },
+              $set: {
+                "tasks.$.taskStatus": "accepted",
+                ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
+              },
+            }
             : {
-                $set: { "tasks.$.taskStatus": "rejected" },
-              };
+              $set: { "tasks.$.taskStatus": "rejected" },
+            };
 
         // Update the user
         const result = await userCollections.updateOne(query, update);
@@ -535,7 +534,7 @@ async function run() {
       };
 
       try {
-        const result = await orderCollections.insertOne(order);
+        const result = await busOrderCollection.insertOne(order);
         const blockedSeat = await allocatedSeatCollections.insertOne(order);
 
         if (result.insertedId) {
@@ -625,7 +624,7 @@ async function run() {
               date: date,
             };
 
-            const result = orderCollections.insertOne(order);
+            const result = busOrderCollection.insertOne(order);
             const blockedSeat = allocatedSeatCollections.insertOne(order);
 
             console.log("Redirecting to: ", GatewayPageURL);
@@ -646,7 +645,7 @@ async function run() {
 
     // payment success
     app.post("/payment/success/:tran_id", async (req, res) => {
-      const result = await orderCollections.updateOne(
+      const result = await busOrderCollection.updateOne(
         { tran_id: req.params.tran_id },
         {
           $set: { status: "paid" },
@@ -667,7 +666,7 @@ async function run() {
 
     //payment fail
     app.post("/payment/fail/:tran_id", async (req, res) => {
-      const result = await orderCollections.deleteOne({
+      const result = await busOrderCollection.deleteOne({
         tran_id: req.params.tran_id,
       });
 
@@ -686,6 +685,73 @@ async function run() {
       }
     });
 
+    // Bkash Payment
+    const bkashConfig = {
+      app_Key: "your_app_key",
+      app_Secret: "your_app_secret",
+      username: "your_username",
+      password: "your_password",
+      base_urk: "https://sandbox.bka.sh/v1.2.0-beta",
+      isSandbox: true, // Use `true` for testing and `false` for production
+    };
+
+    // post payment
+    app.post("/post-payment/bkash", async (req, res) => {
+      const { amount, name, phone, email, course, user, address, date, callBackURL } = req.body;
+      const tran_id = new ObjectId().toString()
+      try {
+        const payment = {
+          amount: amount,
+          currency: "BDT",
+          tran_id: tran_id,
+          callBackURL: callBackURL,
+        }
+        const result = await createPayment(bkashConfig, payment);
+        res.redirect(result?.bkashURL);
+      } catch (error) {
+        console.log(error);
+      }
+    });
+
+    // execute payment
+    app.get("/execute-payment/bkash", async (req, res) => {
+      const { paymentId, status } = req.query;
+      try {
+        let result
+        let response ={
+          statusCose: 4000,
+          statusMessage: "Payment failed"
+        }
+        if (status === "success") {
+          result = await executePayment(bkashConfig, paymentId);
+          const order = {
+            price: amount,
+            name: name,
+            phone: phone,
+            email: email,
+            location: location,
+            address: address,
+            allocatedSeat: allocatedSeat,
+            tran_id: tran_id,
+            status: "loading",
+            busName: busName,
+            counterMaster: counterMaster,
+            selectedRoute: selectedRoute,
+            date: date,
+          };
+
+          const result = OrderCollection.insertOne(order);
+          response = {
+            statusCose: 2000,
+            statusMessage: "Payment success"
+          }
+        }
+        res.redirect(`http://localhost:5173/payment/success/${tran_id}`);
+      } catch (error) {
+        console.log(error);
+      }
+    });
+
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
@@ -697,9 +763,9 @@ async function run() {
 run().catch(console.dir);
 
 app.get('/', (req, res) => {
-    res.send('Pathfinder is running');
+  res.send('Pathfinder is running');
 })
 
 app.listen(PORT, () => {
-    console.log(`Pathfinder is running on ${PORT}`);
+  console.log(`Pathfinder is running on ${PORT}`);
 });
