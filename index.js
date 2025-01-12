@@ -696,10 +696,10 @@ async function run() {
 }
 run().catch(console.dir);
 
-app.get("/", (req, res) => {
-  res.send("bus-ticket is running");
-});
+app.get('/', (req, res) => {
+    res.send('Pathfinder is running');
+})
 
 app.listen(PORT, () => {
-  console.log(`bus-ticket is running on ${PORT}`);
+    console.log(`Pathfinder is running on ${PORT}`);
 });
