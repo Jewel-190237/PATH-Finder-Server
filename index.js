@@ -68,6 +68,7 @@ const is_live = false;
 async function run() {
   try {
     const userCollections = client.db("PATH-FINDER").collection("users");
+    const coursesCollections = client.db("PATH-FINDER").collection("courses");
     const orderCollections = client.db("Bus-Ticket").collection("orders");
     const allocatedSeatCollections = client
       .db("Bus-Ticket")
@@ -685,6 +686,59 @@ async function run() {
           .send({ message: "Failed to delete order or seat data" });
       }
     });
+
+    //  courses post
+
+    app.post("/courses", async (req, res) => {
+        const { course_name, description, thumbnail_image, video, course_price} = req.body;
+      
+        try {
+          const query = { course_name };
+          const existingCourse = await coursesCollections.findOne(query);
+      
+          if (existingCourse) {
+            return res
+              .status(409)
+              .send({ message: "Course already exists. Please use a different name." });
+          }
+      
+          if (!user_id) {
+            return res.status(400).send({ message: "User ID is required." });
+          }
+      
+          const newCourse = {
+            course_name,
+            description,
+            thumbnail_image,
+            video,
+            course_price,
+            created_at: new Date(),
+          };
+      
+          const result = await coursesCollections.insertOne(newCourse);
+          res.status(200).send({ message: "Course added successfully", result });
+        } catch (error) {
+          console.error("Error adding course:", error);
+          res.status(500).send({ message: "Failed to add course", error });
+        }
+      });
+      
+
+    //courses get
+
+
+    app.get("/courses", async (req, res) => {
+        try {
+          const user = coursesCollections.find();
+          const result = await user.toArray();
+          res.status(200).send(result);
+        } catch (error) {
+          res.status(500).send({ message: "Error fetching users", error });
+        }
+      });
+
+
+    
 
     await client.db("admin").command({ ping: 1 });
     console.log(
