@@ -1,13 +1,13 @@
 const express = require("express");
 const app = express();
 const SSLCommerzPayment = require("sslcommerz-lts");
+const { createPayment, executePayment, quearyPayment } = require("bkash-payment");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const PORT = process.env.PORT || 5000;
 const nodemailer = require("nodemailer");
-const e = require("express");
 
 // MiddleWare
 app.use(cors());
@@ -68,13 +68,10 @@ const is_live = false;
 async function run() {
   try {
     const userCollections = client.db("PATH-FINDER").collection("users");
-    const coursesCollections = client.db("PATH-FINDER").collection("courses");
     const orderCollections = client.db("Bus-Ticket").collection("orders");
     const allocatedSeatCollections = client
       .db("Bus-Ticket")
       .collection("allocatedSeat");
-    // const busCollections = client.db("Bus-Ticket").collection("buses");
-    // const routeCollections = client.db("Bus-Ticket").collection("routes");
 
     // Create user (sign-up)
     app.post("/users", async (req, res) => {
@@ -254,15 +251,15 @@ async function run() {
         const update =
           action === "accept"
             ? {
-                $inc: { coins: parseInt(coin, 10) },
-                $set: {
-                  "tasks.$.taskStatus": "accepted",
-                  ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
-                },
-              }
+              $inc: { coins: parseInt(coin, 10) },
+              $set: {
+                "tasks.$.taskStatus": "accepted",
+                ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
+              },
+            }
             : {
-                $set: { "tasks.$.taskStatus": "rejected" },
-              };
+              $set: { "tasks.$.taskStatus": "rejected" },
+            };
 
         // Update the user
         const result = await userCollections.updateOne(query, update);
@@ -536,7 +533,7 @@ async function run() {
       };
 
       try {
-        const result = await orderCollections.insertOne(order);
+        const result = await busOrderCollection.insertOne(order);
         const blockedSeat = await allocatedSeatCollections.insertOne(order);
 
         if (result.insertedId) {
@@ -626,7 +623,7 @@ async function run() {
               date: date,
             };
 
-            const result = orderCollections.insertOne(order);
+            const result = busOrderCollection.insertOne(order);
             const blockedSeat = allocatedSeatCollections.insertOne(order);
 
             console.log("Redirecting to: ", GatewayPageURL);
@@ -647,7 +644,7 @@ async function run() {
 
     // payment success
     app.post("/payment/success/:tran_id", async (req, res) => {
-      const result = await orderCollections.updateOne(
+      const result = await busOrderCollection.updateOne(
         { tran_id: req.params.tran_id },
         {
           $set: { status: "paid" },
@@ -668,7 +665,7 @@ async function run() {
 
     //payment fail
     app.post("/payment/fail/:tran_id", async (req, res) => {
-      const result = await orderCollections.deleteOne({
+      const result = await busOrderCollection.deleteOne({
         tran_id: req.params.tran_id,
       });
 
@@ -687,59 +684,6 @@ async function run() {
       }
     });
 
-    //  courses post
-
-    app.post("/courses", async (req, res) => {
-        const { course_name, description, thumbnail_image, video, course_price} = req.body;
-      
-        try {
-          const query = { course_name };
-          const existingCourse = await coursesCollections.findOne(query);
-      
-          if (existingCourse) {
-            return res
-              .status(409)
-              .send({ message: "Course already exists. Please use a different name." });
-          }
-      
-          if (!user_id) {
-            return res.status(400).send({ message: "User ID is required." });
-          }
-      
-          const newCourse = {
-            course_name,
-            description,
-            thumbnail_image,
-            video,
-            course_price,
-            created_at: new Date(),
-          };
-      
-          const result = await coursesCollections.insertOne(newCourse);
-          res.status(200).send({ message: "Course added successfully", result });
-        } catch (error) {
-          console.error("Error adding course:", error);
-          res.status(500).send({ message: "Failed to add course", error });
-        }
-      });
-      
-
-    //courses get
-
-
-    app.get("/courses", async (req, res) => {
-        try {
-          const user = coursesCollections.find();
-          const result = await user.toArray();
-          res.status(200).send(result);
-        } catch (error) {
-          res.status(500).send({ message: "Error fetching users", error });
-        }
-      });
-
-
-    
-
     await client.db("admin").command({ ping: 1 });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
@@ -751,9 +695,9 @@ async function run() {
 run().catch(console.dir);
 
 app.get('/', (req, res) => {
-    res.send('Pathfinder is running');
+  res.send('Pathfinder is running');
 })
 
 app.listen(PORT, () => {
-    console.log(`Pathfinder is running on ${PORT}`);
+  console.log(`Pathfinder is running on ${PORT}`);
 });
