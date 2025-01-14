@@ -9,6 +9,10 @@ const jwt = require("jsonwebtoken");
 const PORT = process.env.PORT || 5000;
 const nodemailer = require("nodemailer");
 
+//for course
+const multer = require("multer");
+const storage = multer.memoryStorage(); // Or configure as needed
+const upload = multer({ storage });
 // MiddleWare
 app.use(cors());
 app.use(express.json());
@@ -69,6 +73,7 @@ async function run() {
   try {
     const userCollections = client.db("PATH-FINDER").collection("users");
     const orderCollections = client.db("Bus-Ticket").collection("orders");
+    const coursesCollections = client.db("PATH-FINDER").collection("courses");
     const allocatedSeatCollections = client
       .db("Bus-Ticket")
       .collection("allocatedSeat");
@@ -683,6 +688,132 @@ async function run() {
           .send({ message: "Failed to delete order or seat data" });
       }
     });
+
+
+    //  courses post
+
+    // app.post("/courses", async (req, res) => {
+    //   const { course_name, description, thumbnail_image, video, course_price } = req.body;
+    //   try {
+    //     const query = { course_name };
+    //     const existingCourse = await coursesCollections.findOne(query);
+
+    //     if (existingCourse) {
+    //       return res
+    //         .status(409)
+    //         .send({ message: "Course already exists. Please use a different name." });
+    //     }
+
+    //     if (!user_id) {
+    //       return res.status(400).send({ message: "User ID is required." });
+    //     }
+
+    //     const newCourse = {
+    //       course_name,
+    //       description,
+    //       thumbnail_image,
+    //       video,
+    //       course_price,
+    //       created_at: new Date(),
+    //     };
+
+    //     const result = await coursesCollections.insertOne(newCourse);
+    //     res.status(200).send({ message: "Course added successfully", result });
+    //   } catch (error) {
+    //     console.error("Error adding course:", error);
+    //     res.status(500).send({ message: "Failed to add course", error });
+    //   }
+    // });
+
+// Configure multer for file uploads
+
+
+
+app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
+  try {
+    const { course_name, description, video, course_price } = req.body;
+    const file = req.file; // The uploaded file
+
+    if (!file) {
+      return res.status(400).send({ message: "Thumbnail image is required." });
+    }
+
+    const newCourse = {
+      course_name,
+      description,
+      thumbnail_image: file.originalname, // Save file name or path
+      video,
+      course_price: parseFloat(course_price),
+      created_at: new Date(),
+    };
+
+    const result = await coursesCollections.insertOne(newCourse);
+    res.status(200).send({ message: "Course added successfully", result });
+  } catch (error) {
+    console.error("Error adding course:", error);
+    res.status(500).send({ message: "Failed to add course", error });
+  }
+});
+
+    //courses get
+
+    app.get("/courses", async (req, res) => {
+      try {
+        const user = coursesCollections.find();
+        const result = await user.toArray();
+        res.status(200).send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Error fetching users", error });
+      }
+    });
+
+    // course update 
+
+    app.put("/courses/update", async (req, res) => {
+      const { id, course_name, description, video, course_price } = req.body;
+      const thumbnail_image = req.file?.path; // Handle file if present
+    
+      try {
+        const query = { _id: new ObjectId(id) };
+        const updateData = {
+          course_name,
+          description,
+          video,
+          course_price,
+          ...(thumbnail_image && { thumbnail_image }),
+        };
+    
+        const result = await coursesCollections.updateOne(query, { $set: updateData });
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: "Course not found or no changes made." });
+        }
+    
+        res.status(200).send({ message: "Course updated successfully", result });
+      } catch (error) {
+        console.error("Error updating course:", error);
+        res.status(500).send({ message: "Failed to update course", error });
+      }
+    });
+    
+
+    // course delete 
+
+    app.delete("/courses/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      try {
+        const result = await coursesCollections.deleteOne(query);
+        if (result.deletedCount === 1) {
+          res.status(200).send({ message: "User deleted successfully" });
+        } else {
+          res.status(404).send({ message: "User not found" });
+        }
+      } catch (error) {
+        res.status(500).send({ message: "Error deleting user", error });
+      }
+    });
+
+
 
     await client.db("admin").command({ ping: 1 });
     console.log(
