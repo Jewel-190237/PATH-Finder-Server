@@ -19,15 +19,12 @@ class PaymentController {
   payment_create = async (req, res) => {
     const { amount, userId } = req.body;
     try {
-      // Step 1: Create a pending order in the database
       const order = await this.orderCollection.insertOne({
         userId,
         amount,
         status: "pending",
         createdAt: new Date(),
       });
-
-      // Step 2: Initiate payment with bKash
       const { data } = await axios.post(
         process.env.bkash_create_payment_url,
         {
@@ -60,7 +57,6 @@ class PaymentController {
 
     if (status === "success") {
       try {
-        // Step 1: Execute payment with bKash
         const { data } = await axios.post(
           process.env.bkash_execute_payment_url,
           { paymentID },
@@ -70,7 +66,6 @@ class PaymentController {
         );
 
         if (data && data.statusCode === "0000") {
-          // Step 2: Update the order to 'paid'
           const result = await this.orderCollection.updateOne(
             { _id: new ObjectId(data.merchantInvoiceNumber) },
             {

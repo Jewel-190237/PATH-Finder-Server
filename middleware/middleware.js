@@ -20,7 +20,7 @@ class middleware {
         }
       );
 
-      console.log("bKash Auth Response:", data); // Log the entire response from bKash
+      console.log("bKash Auth Response:", data); 
 
       if (data && data.id_token) {
         setValue("id_token", data.id_token, { protected: true });
