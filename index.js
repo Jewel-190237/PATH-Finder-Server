@@ -2,8 +2,8 @@ const express = require("express");
 const app = express();
 const SSLCommerzPayment = require("sslcommerz-lts");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
-const mongoes = require("mongoose");
 const body_parser = require("body-parser");
+
 
 require("dotenv").config();
 const cors = require("cors");
@@ -21,7 +21,6 @@ app.use(express.json());
 
 app.use(body_parser.json());
 
-app.use('/api', require('./Routes/routes'))
 
 // JWT Authentication Middleware
 const verifyJWT = (req, res, next) => {
@@ -83,6 +82,11 @@ async function run() {
     const allocatedSeatCollections = client
       .db("Bus-Ticket")
       .collection("allocatedSeat");
+
+
+    // BKash Payment  
+    app.use("/api/bkash/payment", require("./Routes/routes")(OrderCollection));
+
 
     // Create user (sign-up)
     app.post("/users", async (req, res) => {

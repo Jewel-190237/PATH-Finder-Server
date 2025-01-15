@@ -1,14 +1,14 @@
-const router = require('express').Router()
-const paymentController = require('../controller/paymentController')
-const middleware = require('../middleware/middleware')
+const router = require("express").Router();
 
-router.post('/bkash/payment/create', middleware.bkash_auth, paymentController.payment_create)
+module.exports = (orderCollection) => {
+  const paymentController = require("../controller/paymentController")(orderCollection);
+  const middleware = require("../middleware/middleware");
 
-router.get('/bkash/payment/callback',middleware.bkash_auth, paymentController.call_back)
+  // Create payment
+  router.post("/create", middleware.bkash_auth, paymentController.payment_create);
 
-// router.get('/bkash/payment/callback',middleware.bkash_auth, paymentController.call_back)
+  // Payment callback
+  router.get("/callback", middleware.bkash_auth, paymentController.call_back);
 
-// router.get('/bkash/payment/refund/:trxID',middleware.bkash_auth, paymentController.refund)
-
-
-module.exports = router
+  return router;
+};

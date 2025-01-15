@@ -1,5 +1,6 @@
 const axios = require("axios");
 const { getValue, setValue } = require("node-global-storage");
+
 class middleware {
   bkash_auth = async (req, res, next) => {
     try {
@@ -18,11 +19,19 @@ class middleware {
           },
         }
       );
-      console.log(data);
-      setValue("id_token", data.id_token, { protected: true });
-      next();
+
+      console.log("bKash Auth Response:", data); // Log the entire response from bKash
+
+      if (data && data.id_token) {
+        setValue("id_token", data.id_token, { protected: true });
+        console.log("Token Stored Successfully");
+        next();
+      } else {
+        res.status(401).json({ error: "Failed to authenticate with bKash. Missing id_token." });
+      }
     } catch (error) {
-      return res.status(401).json({ error: error.message })
+      console.error("bKash Auth Error:", error.message);
+      res.status(401).json({ error: "Authentication failed", details: error.message });
     }
   };
 }

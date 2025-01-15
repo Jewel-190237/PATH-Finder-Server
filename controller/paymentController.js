@@ -1,8 +1,12 @@
-const { getValue, setValue } = require("node-global-storage");
 const axios = require("axios");
-const paymentModel = require('../model/paymentModel')
+const { getValue } = require("node-global-storage");
+const { ObjectId } = require("mongodb");
 
-class paymentController {
+class PaymentController {
+  constructor(orderCollection) {
+    this.orderCollection = orderCollection;
+  }
+
   bkash_headers = async () => {
     return {
       "Content-Type": "application/json",
@@ -13,28 +17,37 @@ class paymentController {
   };
 
   payment_create = async (req, res) => {
-    const { amount } = req.body;
+    const { amount, userId } = req.body;
     try {
+      // Step 1: Create a pending order in the database
+      const order = await this.orderCollection.insertOne({
+        userId,
+        amount,
+        status: "pending",
+        createdAt: new Date(),
+      });
+
+      // Step 2: Initiate payment with bKash
       const { data } = await axios.post(
         process.env.bkash_create_payment_url,
         {
           mode: "0011",
           payerReference: " ",
           callbackURL: "http://localhost:5000/api/bkash/payment/callback",
-          amount: amount,
+          amount,
           currency: "BDT",
           intent: "sale",
-          merchantInvoiceNumber: "InvoiceNumber",
+          merchantInvoiceNumber: order.insertedId.toString(),
         },
         {
           headers: await this.bkash_headers(),
         }
       );
-      console.log(data);
-      return res.status(200).json({ bkashURL: data.bkashURL });
-      //   return res.status(200).json({ bkashURL: data.bkashURL });
+
+      res.status(200).json({ bkashURL: data.bkashURL });
     } catch (error) {
-      return res.status(401).json({ error: error.message });
+      console.error("Error creating payment:", error.message);
+      res.status(500).json({ error: "Failed to create payment" });
     }
   };
 
@@ -44,8 +57,10 @@ class paymentController {
     if (status === "cancel" || status === "failure") {
       return res.redirect(`http://localhost:5173/payment/fail?message=${status}`);
     }
+
     if (status === "success") {
       try {
+        // Step 1: Execute payment with bKash
         const { data } = await axios.post(
           process.env.bkash_execute_payment_url,
           { paymentID },
@@ -53,23 +68,35 @@ class paymentController {
             headers: await this.bkash_headers(),
           }
         );
-        if (data && data.statusCode === "0000") {
-          await paymentModel.create({
-            userId: Math.random() * 10 + 1,
-            paymentID,
-            trxID: data.trxID,
-            date: data.paymentExecuteTime,
-            amount: parseInt(data.amount),
-          });
 
-          return res.redirect(`http://localhost:5173/payment/success`);
+        if (data && data.statusCode === "0000") {
+          // Step 2: Update the order to 'paid'
+          const result = await this.orderCollection.updateOne(
+            { _id: new ObjectId(data.merchantInvoiceNumber) },
+            {
+              $set: {
+                status: "paid",
+                trxID: data.trxID,
+                paymentID,
+                paymentExecuteTime: data.paymentExecuteTime,
+              },
+            }
+          );
+
+          if (result.modifiedCount === 1) {
+            return res.redirect(`http://localhost:5173/payment/success`);
+          } else {
+            return res.redirect(
+              `http://localhost:5173/payment/fail?message=Order not found`
+            );
+          }
         } else {
           return res.redirect(
             `http://localhost:5173/payment/fail?message=${data.statusMessage}`
           );
         }
       } catch (error) {
-        console.log(error);
+        console.error("Error executing payment:", error.message);
         return res.redirect(
           `http://localhost:5173/payment/fail?message=${error.message}`
         );
@@ -78,4 +105,4 @@ class paymentController {
   };
 }
 
-module.exports = new paymentController();
+module.exports = (orderCollection) => new PaymentController(orderCollection);
