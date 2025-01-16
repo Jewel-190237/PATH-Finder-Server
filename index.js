@@ -804,9 +804,7 @@ async function run() {
       const {course_name, description, video, course_price, } = req.body;
       const _id = req.params.id;
       console.log("🚀 ~ app.put ~ _id:", _id)
-      
-      const thumbnail_image = req.file?.path; // Handle file if present
-
+      const thumbnail_image = req.file?.path; 
       try {
         const query = { _id: new ObjectId(_id) };
         const updateData = {
