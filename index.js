@@ -725,35 +725,35 @@ async function run() {
     //   }
     // });
 
-// Configure multer for file uploads
+    // Configure multer for file uploads
 
 
 
-app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
-  try {
-    const { course_name, description, video, course_price } = req.body;
-    const file = req.file; // The uploaded file
+    app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
+      try {
+        const { course_name, description, video, course_price } = req.body;
+        const file = req.file; // The uploaded file
 
-    if (!file) {
-      return res.status(400).send({ message: "Thumbnail image is required." });
-    }
+        if (!file) {
+          return res.status(400).send({ message: "Thumbnail image is required." });
+        }
 
-    const newCourse = {
-      course_name,
-      description,
-      thumbnail_image: file.originalname, // Save file name or path
-      video,
-      course_price: parseFloat(course_price),
-      created_at: new Date(),
-    };
+        const newCourse = {
+          course_name,
+          description,
+          thumbnail_image: file.originalname, // Save file name or path
+          video,
+          course_price: parseFloat(course_price),
+          created_at: new Date(),
+        };
 
-    const result = await coursesCollections.insertOne(newCourse);
-    res.status(200).send({ message: "Course added successfully", result });
-  } catch (error) {
-    console.error("Error adding course:", error);
-    res.status(500).send({ message: "Failed to add course", error });
-  }
-});
+        const result = await coursesCollections.insertOne(newCourse);
+        res.status(200).send({ message: "Course added successfully", result });
+      } catch (error) {
+        console.error("Error adding course:", error);
+        res.status(500).send({ message: "Failed to add course", error });
+      }
+    });
 
     //courses get
 
@@ -767,12 +767,29 @@ app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
       }
     });
 
+    // Get a specific course
+    app.get("/courses/:id", async (req, res) => {
+      const { id } = req.params; // Get the course ID from the URL
+
+      try {
+        const course = await coursesCollections.findOne({ _id: new ObjectId(id) }); // Find course by ID
+        if (!course) {
+          return res.status(404).send({ message: "Course not found" });
+        }
+        res.status(200).send(course);
+      } catch (error) {
+        console.error("Error fetching course:", error);
+        res.status(500).send({ message: "Error fetching course", error });
+      }
+    });
+
+
     // course update 
 
     app.put("/courses/update", async (req, res) => {
       const { id, course_name, description, video, course_price } = req.body;
       const thumbnail_image = req.file?.path; // Handle file if present
-    
+
       try {
         const query = { _id: new ObjectId(id) };
         const updateData = {
@@ -782,19 +799,19 @@ app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
           course_price,
           ...(thumbnail_image && { thumbnail_image }),
         };
-    
+
         const result = await coursesCollections.updateOne(query, { $set: updateData });
         if (result.modifiedCount === 0) {
           return res.status(404).send({ message: "Course not found or no changes made." });
         }
-    
+
         res.status(200).send({ message: "Course updated successfully", result });
       } catch (error) {
         console.error("Error updating course:", error);
         res.status(500).send({ message: "Failed to update course", error });
       }
     });
-    
+
 
     // course delete 
 
