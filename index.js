@@ -800,12 +800,12 @@ async function run() {
 
     // course update 
 
-    app.put("/courses/update", async (req, res) => {
-      const { id, course_name, description, video, course_price } = req.body;
+    app.put("/courses/:id", async (req, res) => {
+      const { _id, course_name, description, video, course_price, } = req.body;
       const thumbnail_image = req.file?.path; // Handle file if present
 
       try {
-        const query = { _id: new ObjectId(id) };
+        const query = { _id: new ObjectId(_id) };
         const updateData = {
           course_name,
           description,
