@@ -801,7 +801,10 @@ async function run() {
     // course update 
 
     app.put("/courses/:id", async (req, res) => {
-      const { _id, course_name, description, video, course_price, } = req.body;
+      const {course_name, description, video, course_price, } = req.body;
+      const _id = req.params.id;
+      console.log("🚀 ~ app.put ~ _id:", _id)
+      
       const thumbnail_image = req.file?.path; // Handle file if present
 
       try {
