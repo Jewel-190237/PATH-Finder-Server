@@ -782,6 +782,22 @@ async function run() {
       }
     });
 
+    // Get a specific course
+    app.get("/courses/:id", async (req, res) => {
+      const { id } = req.params; // Get the course ID from the URL
+
+      try {
+        const course = await coursesCollections.findOne({ _id: new ObjectId(id) }); // Find course by ID
+        if (!course) {
+          return res.status(404).send({ message: "Course not found" });
+        }
+        res.status(200).send(course);
+      } catch (error) {
+        console.error("Error fetching course:", error);
+        res.status(500).send({ message: "Error fetching course", error });
+      }
+    });
+
     // course update 
 
     app.put("/courses/update", async (req, res) => {
