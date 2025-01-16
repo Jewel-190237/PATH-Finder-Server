@@ -89,7 +89,7 @@ async function run() {
 
 
     // BKash Payment  
-    app.use("/api/bkash/payment", require("./Routes/routes")(OrderCollection));
+    app.use("/api/bkash/payment", require("./Routes/routes")(orderCollections));
 
 
     // Create user (sign-up)
