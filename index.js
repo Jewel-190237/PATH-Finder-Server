@@ -1,20 +1,34 @@
+
 const express = require("express");
 const app = express();
 const SSLCommerzPayment = require("sslcommerz-lts");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const body_parser = require("body-parser");
-
-
+const multer = require("multer");
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 require("dotenv").config();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const PORT = process.env.PORT || 5000;
 const nodemailer = require("nodemailer");
 
-//for course
-const multer = require("multer");
-const storage = multer.memoryStorage(); // Or configure as needed
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Configure Multer
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: "courses",
+    allowed_formats: ["jpg", "jpeg", "png"],
+  },
+});
 const upload = multer({ storage });
+;
 // MiddleWare
 app.use(cors({
   origin: 'http://localhost:5173',
@@ -705,30 +719,22 @@ async function run() {
     });
 
 
-    //  courses post
 
-    // app.post("/courses", async (req, res) => {
-    //   const { course_name, description, thumbnail_image, video, course_price } = req.body;
+    // app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
     //   try {
-    //     const query = { course_name };
-    //     const existingCourse = await coursesCollections.findOne(query);
+    //     const { course_name, description, video, course_price } = req.body;
+    //     const file = req.file; // The uploaded file
 
-    //     if (existingCourse) {
-    //       return res
-    //         .status(409)
-    //         .send({ message: "Course already exists. Please use a different name." });
-    //     }
-
-    //     if (!user_id) {
-    //       return res.status(400).send({ message: "User ID is required." });
+    //     if (!file) {
+    //       return res.status(400).send({ message: "Thumbnail image is required." });
     //     }
 
     //     const newCourse = {
     //       course_name,
     //       description,
-    //       thumbnail_image,
+    //       thumbnail_image: file.originalname, // Save file name or path
     //       video,
-    //       course_price,
+    //       course_price: parseFloat(course_price),
     //       created_at: new Date(),
     //     };
 
@@ -740,28 +746,59 @@ async function run() {
     //   }
     // });
 
-    // Configure multer for file uploads
+    //courses get
 
+
+    // app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
+    //   try {
+    //     const { course_name, description, video, course_price } = req.body;
+    //     const file = req.file;
+    
+    //     if (!file) {
+    //       return res.status(400).send({ message: "Thumbnail image is required." });
+    //     }
+    
+    //     // Upload image to Cloudinary
+    //     const uploadResult = await cloudinary.uploader.upload(file.path, {
+    //       folder: "courses",
+    //     });
+    
+    //     const newCourse = {
+    //       course_name,
+    //       description,
+    //       thumbnail_image: uploadResult.secure_url, // Cloudinary image URL
+    //       video,
+    //       course_price: parseFloat(course_price),
+    //       created_at: new Date(),
+    //     };
+    
+    //     const result = await coursesCollections.insertOne(newCourse);
+    //     res.status(200).send({ message: "Course added successfully", result });
+    //   } catch (error) {
+    //     console.error("Error adding course:", error);
+    //     res.status(500).send({ message: "Failed to add course", error });
+    //   }
+    // });
 
 
     app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
       try {
         const { course_name, description, video, course_price } = req.body;
-        const file = req.file; // The uploaded file
-
+        const file = req.file; // Uploaded file
+    
         if (!file) {
           return res.status(400).send({ message: "Thumbnail image is required." });
         }
-
+    
         const newCourse = {
           course_name,
           description,
-          thumbnail_image: file.originalname, // Save file name or path
+          thumbnail_image: file.path, // Cloudinary URL
           video,
           course_price: parseFloat(course_price),
           created_at: new Date(),
         };
-
+    
         const result = await coursesCollections.insertOne(newCourse);
         res.status(200).send({ message: "Course added successfully", result });
       } catch (error) {
@@ -770,7 +807,7 @@ async function run() {
       }
     });
 
-    //courses get
+    //get course
 
     app.get("/courses", async (req, res) => {
       try {
