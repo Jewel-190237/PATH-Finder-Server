@@ -81,7 +81,6 @@ const is_live = false;
 async function run() {
   try {
     const userCollections = client.db("PATH-FINDER").collection("users");
-    const orderCollections = client.db("Bus-Ticket").collection("orders");
     const coursesCollections = client.db("PATH-FINDER").collection("courses");
     const allocatedSeatCollections = client
       .db("Bus-Ticket")
@@ -89,7 +88,7 @@ async function run() {
 
 
     // BKash Payment  
-    app.use("/api/bkash/payment", require("./Routes/routes")(orderCollections));
+    app.use("/api/bkash/payment", require("./Routes/routes")(coursesCollections));
 
 
     // Create user (sign-up)
