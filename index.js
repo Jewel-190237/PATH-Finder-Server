@@ -753,16 +753,16 @@ async function run() {
     //   try {
     //     const { course_name, description, video, course_price } = req.body;
     //     const file = req.file;
-    
+
     //     if (!file) {
     //       return res.status(400).send({ message: "Thumbnail image is required." });
     //     }
-    
+
     //     // Upload image to Cloudinary
     //     const uploadResult = await cloudinary.uploader.upload(file.path, {
     //       folder: "courses",
     //     });
-    
+
     //     const newCourse = {
     //       course_name,
     //       description,
@@ -771,7 +771,7 @@ async function run() {
     //       course_price: parseFloat(course_price),
     //       created_at: new Date(),
     //     };
-    
+
     //     const result = await coursesCollections.insertOne(newCourse);
     //     res.status(200).send({ message: "Course added successfully", result });
     //   } catch (error) {
@@ -785,11 +785,11 @@ async function run() {
       try {
         const { course_name, description, video, course_price } = req.body;
         const file = req.file; // Uploaded file
-    
+
         if (!file) {
           return res.status(400).send({ message: "Thumbnail image is required." });
         }
-    
+
         const newCourse = {
           course_name,
           description,
@@ -798,7 +798,7 @@ async function run() {
           course_price: parseFloat(course_price),
           created_at: new Date(),
         };
-    
+
         const result = await coursesCollections.insertOne(newCourse);
         res.status(200).send({ message: "Course added successfully", result });
       } catch (error) {
@@ -837,35 +837,62 @@ async function run() {
 
     // course update 
 
-    app.put("/courses/:id", async (req, res) => {
-      const {course_name, description, video, course_price, } = req.body;
-      const _id = req.params.id;
-      console.log("🚀 ~ app.put ~ _id:", _id)
-      const thumbnail_image = req.file?.path; 
-      try {
-        const query = { _id: new ObjectId(_id) };
-        const updateData = {
-          course_name,
-          description,
-          video,
-          course_price,
-          ...(thumbnail_image && { thumbnail_image }),
-        };
+    // app.put("/courses/:id", upload.single("thumbnail_image"), async (req, res) => {
+    //   const { course_name, description, video, course_price } = req.body;
+    //   const _id = req.params.id;
+    //   const thumbnail_image = req.file?.path;
+    
+    //   try {
+    //     const query = { _id: new ObjectId(_id) };
+    //     const updateData = {
+    //       course_name,
+    //       description,
+    //       video,
+    //       course_price,
+    //       ...(thumbnail_image && { thumbnail_image }),
+    //     };
+    
+    //     const result = await coursesCollections.updateOne(query, { $set: updateData });
+    //     if (result.modifiedCount === 0) {
+    //       return res.status(404).send({ message: "Course not found or no changes made." });
+    //     }
+    
+    //     res.status(200).send({ message: "Course updated successfully", result });
+    //   } catch (error) {
+    //     console.error("Error updating course:", error);
+    //     res.status(500).send({ message: "Failed to update course", error });
+    //   }
+    // });
 
-        const result = await coursesCollections.updateOne(query, { $set: updateData });
-        if (result.modifiedCount === 0) {
-          return res.status(404).send({ message: "Course not found or no changes made." });
-        }
 
-        res.status(200).send({ message: "Course updated successfully", result });
-      } catch (error) {
-        console.error("Error updating course:", error);
-        res.status(500).send({ message: "Failed to update course", error });
-      }
-    });
+ app.put("/courses/:id", async (req, res) => {
+  const { course_name, description, video, course_price } = req.body;
+  const _id = req.params.id;
+  const thumbnail_image = req.file?.path;  // This should point to the uploaded image file
+  
+  try {
+    const query = { _id: new ObjectId(_id) };
+    const updateData = {
+      course_name,
+      description,
+      video,
+      course_price,
+      ...(thumbnail_image && { thumbnail_image }),  // Only add this if an image is uploaded
+    };
+
+    const result = await coursesCollections.updateOne(query, { $set: updateData });
+    if (result.modifiedCount === 0) {
+      return res.status(404).send({ message: "Course not found or no changes made." });
+    }
+
+    res.status(200).send({ message: "Course updated successfully", result });
+  } catch (error) {
+    console.error("Error updating course:", error);
+    res.status(500).send({ message: "Failed to update course", error });
+  }
+});
 
 
-    // course delete 
 
     app.delete("/courses/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
@@ -873,12 +900,12 @@ async function run() {
       try {
         const result = await coursesCollections.deleteOne(query);
         if (result.deletedCount === 1) {
-          res.status(200).send({ message: "User deleted successfully" });
+          res.status(200).send({ message: "Course deleted successfully" }); // Corrected message
         } else {
-          res.status(404).send({ message: "User not found" });
+          res.status(404).send({ message: "Course not found" }); // Consistent naming
         }
       } catch (error) {
-        res.status(500).send({ message: "Error deleting user", error });
+        res.status(500).send({ message: "Error deleting course", error }); // Consistent naming
       }
     });
 
