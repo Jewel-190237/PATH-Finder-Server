@@ -1,12 +1,13 @@
-
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+const multer = require("multer");
 const express = require("express");
 const app = express();
 const SSLCommerzPayment = require("sslcommerz-lts");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const body_parser = require("body-parser");
-const multer = require("multer");
-const cloudinary = require("cloudinary").v2;
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
+
+
 require("dotenv").config();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -30,15 +31,16 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 ;
 // MiddleWare
-app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 
 app.use(body_parser.json());
-
 
 // JWT Authentication Middleware
 const verifyJWT = (req, res, next) => {
@@ -95,16 +97,43 @@ const is_live = false;
 async function run() {
   try {
     const userCollections = client.db("PATH-FINDER").collection("users");
-    const orderCollections = client.db("Bus-Ticket").collection("orders");
     const coursesCollections = client.db("PATH-FINDER").collection("courses");
+    const orderCollections = client.db("PATH-FINDER").collection("orders");
     const allocatedSeatCollections = client
       .db("Bus-Ticket")
       .collection("allocatedSeat");
 
-
-    // BKash Payment  
+    // BKash Payment
     app.use("/api/bkash/payment", require("./Routes/routes")(orderCollections));
 
+    // Route to fetch all courses for a specific user
+    app.get("/courses/student/:userId", async (req, res) => {
+      const { userId } = req.params;
+
+      try {
+        // Find orders for the given userId
+        const orders = await orderCollections.find({ userId }).toArray();
+
+        if (!orders.length) {
+          return res
+            .status(404)
+            .json({ message: "No orders found for this user" });
+        }
+
+        // Extract courseIds from orders
+        const courseIds = orders.map((order) => new ObjectId(order.courseId));
+
+        // Fetch full course details
+        const courses = await coursesCollections
+          .find({ _id: { $in: courseIds } })
+          .toArray();
+
+        res.json(courses);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+        res.status(500).json({ message: "Failed to fetch courses" });
+      }
+    });
 
     // Create user (sign-up)
     app.post("/users", async (req, res) => {
@@ -124,7 +153,6 @@ async function run() {
       const result = await userCollections.insertOne(user);
       res.status(200).send(result);
     });
-
 
     // Route to approve user status
     app.put("/users/:id/approve", verifyJWT, verifyAdmin, async (req, res) => {
@@ -285,15 +313,15 @@ async function run() {
         const update =
           action === "accept"
             ? {
-              $inc: { coins: parseInt(coin, 10) },
-              $set: {
-                "tasks.$.taskStatus": "accepted",
-                ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
-              },
-            }
+                $inc: { coins: parseInt(coin, 10) },
+                $set: {
+                  "tasks.$.taskStatus": "accepted",
+                  ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
+                },
+              }
             : {
-              $set: { "tasks.$.taskStatus": "rejected" },
-            };
+                $set: { "tasks.$.taskStatus": "rejected" },
+              };
 
         // Update the user
         const result = await userCollections.updateOne(query, update);
@@ -377,11 +405,11 @@ async function run() {
       try {
         const user = await userCollections.findOne({ _id: new ObjectId(id) });
         if (user) {
-          const { _id, name, phone, role, subRole, status, tasks, coins } =
+          const { _id, name, phone, role, subRole, status, tasks, coins, code, level } =
             user;
           res
             .status(200)
-            .send({ _id, name, phone, role, subRole, status, tasks, coins });
+            .send({ _id, name, phone, role, subRole, status, tasks, coins, code, level });
         } else {
           res.status(404).send({ message: "User not found" });
         }
@@ -719,7 +747,6 @@ async function run() {
     });
 
 
-
     // app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
     //   try {
     //     const { course_name, description, video, course_price } = req.body;
@@ -746,7 +773,7 @@ async function run() {
     //   }
     // });
 
-    //courses get
+    // Configure multer for file uploads
 
 
     // app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
@@ -787,7 +814,9 @@ async function run() {
         const file = req.file; // Uploaded file
 
         if (!file) {
-          return res.status(400).send({ message: "Thumbnail image is required." });
+          return res
+            .status(400)
+            .send({ message: "Thumbnail image is required." });
         }
 
         const newCourse = {
@@ -824,7 +853,9 @@ async function run() {
       const { id } = req.params; // Get the course ID from the URL
 
       try {
-        const course = await coursesCollections.findOne({ _id: new ObjectId(id) }); // Find course by ID
+        const course = await coursesCollections.findOne({
+          _id: new ObjectId(id),
+        }); // Find course by ID
         if (!course) {
           return res.status(404).send({ message: "Course not found" });
         }
@@ -835,7 +866,7 @@ async function run() {
       }
     });
 
-    // course update 
+    // course update
 
     // app.put("/courses/:id", upload.single("thumbnail_image"), async (req, res) => {
     //   const { course_name, description, video, course_price } = req.body;
@@ -908,8 +939,6 @@ async function run() {
         res.status(500).send({ message: "Error deleting course", error }); // Consistent naming
       }
     });
-
-
 
     await client.db("admin").command({ ping: 1 });
     console.log(

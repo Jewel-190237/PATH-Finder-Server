@@ -3,8 +3,8 @@ const { getValue } = require("node-global-storage");
 const { ObjectId } = require("mongodb");
 
 class PaymentController {
-  constructor(orderCollection) {
-    this.orderCollection = orderCollection;
+  constructor(orderCollections) {
+    this.orderCollections = orderCollections;
   }
 
   bkash_headers = async () => {
@@ -17,11 +17,12 @@ class PaymentController {
   };
 
   payment_create = async (req, res) => {
-    const { amount, userId } = req.body;
+    const { amount, userId, courseId } = req.body;
     try {
-      const order = await this.orderCollection.insertOne({
+      const order = await this.orderCollections.insertOne({
         userId,
         amount,
+        courseId,
         status: "pending",
         createdAt: new Date(),
       });
@@ -66,7 +67,7 @@ class PaymentController {
         );
 
         if (data && data.statusCode === "0000") {
-          const result = await this.orderCollection.updateOne(
+          const result = await this.orderCollections.updateOne(
             { _id: new ObjectId(data.merchantInvoiceNumber) },
             {
               $set: {
@@ -100,4 +101,4 @@ class PaymentController {
   };
 }
 
-module.exports = (orderCollection) => new PaymentController(orderCollection);
+module.exports = (orderCollections) => new PaymentController(orderCollections);
