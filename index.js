@@ -405,11 +405,11 @@ async function run() {
       try {
         const user = await userCollections.findOne({ _id: new ObjectId(id) });
         if (user) {
-          const { _id, name, phone, role, subRole, status, tasks, coins } =
+          const { _id, name, phone, role, subRole, status, tasks, coins, code, level } =
             user;
           res
             .status(200)
-            .send({ _id, name, phone, role, subRole, status, tasks, coins });
+            .send({ _id, name, phone, role, subRole, status, tasks, coins, code, level });
         } else {
           res.status(404).send({ message: "User not found" });
         }
