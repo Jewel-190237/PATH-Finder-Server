@@ -4,7 +4,6 @@ const SSLCommerzPayment = require("sslcommerz-lts");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const body_parser = require("body-parser");
 
-
 require("dotenv").config();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -16,15 +15,16 @@ const multer = require("multer");
 const storage = multer.memoryStorage(); // Or configure as needed
 const upload = multer({ storage });
 // MiddleWare
-app.use(cors({
-  origin: 'http://localhost:5173',
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 
 app.use(body_parser.json());
-
 
 // JWT Authentication Middleware
 const verifyJWT = (req, res, next) => {
@@ -82,14 +82,42 @@ async function run() {
   try {
     const userCollections = client.db("PATH-FINDER").collection("users");
     const coursesCollections = client.db("PATH-FINDER").collection("courses");
+    const orderCollections = client.db("PATH-FINDER").collection("orders");
     const allocatedSeatCollections = client
       .db("Bus-Ticket")
       .collection("allocatedSeat");
 
+    // BKash Payment
+    app.use("/api/bkash/payment", require("./Routes/routes")(orderCollections));
 
-    // BKash Payment  
-    app.use("/api/bkash/payment", require("./Routes/routes")(coursesCollections));
+    // Route to fetch all courses for a specific user
+    app.get("/courses/student/:userId", async (req, res) => {
+      const { userId } = req.params;
 
+      try {
+        // Find orders for the given userId
+        const orders = await orderCollections.find({ userId }).toArray();
+
+        if (!orders.length) {
+          return res
+            .status(404)
+            .json({ message: "No orders found for this user" });
+        }
+
+        // Extract courseIds from orders
+        const courseIds = orders.map((order) => new ObjectId(order.courseId));
+
+        // Fetch full course details
+        const courses = await coursesCollections
+          .find({ _id: { $in: courseIds } })
+          .toArray();
+
+        res.json(courses);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+        res.status(500).json({ message: "Failed to fetch courses" });
+      }
+    });
 
     // Create user (sign-up)
     app.post("/users", async (req, res) => {
@@ -109,7 +137,6 @@ async function run() {
       const result = await userCollections.insertOne(user);
       res.status(200).send(result);
     });
-
 
     // Route to approve user status
     app.put("/users/:id/approve", verifyJWT, verifyAdmin, async (req, res) => {
@@ -270,15 +297,15 @@ async function run() {
         const update =
           action === "accept"
             ? {
-              $inc: { coins: parseInt(coin, 10) },
-              $set: {
-                "tasks.$.taskStatus": "accepted",
-                ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
-              },
-            }
+                $inc: { coins: parseInt(coin, 10) },
+                $set: {
+                  "tasks.$.taskStatus": "accepted",
+                  ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
+                },
+              }
             : {
-              $set: { "tasks.$.taskStatus": "rejected" },
-            };
+                $set: { "tasks.$.taskStatus": "rejected" },
+              };
 
         // Update the user
         const result = await userCollections.updateOne(query, update);
@@ -703,7 +730,6 @@ async function run() {
       }
     });
 
-
     //  courses post
 
     // app.post("/courses", async (req, res) => {
@@ -741,15 +767,15 @@ async function run() {
 
     // Configure multer for file uploads
 
-
-
     app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
       try {
         const { course_name, description, video, course_price } = req.body;
         const file = req.file; // The uploaded file
 
         if (!file) {
-          return res.status(400).send({ message: "Thumbnail image is required." });
+          return res
+            .status(400)
+            .send({ message: "Thumbnail image is required." });
         }
 
         const newCourse = {
@@ -786,7 +812,9 @@ async function run() {
       const { id } = req.params; // Get the course ID from the URL
 
       try {
-        const course = await coursesCollections.findOne({ _id: new ObjectId(id) }); // Find course by ID
+        const course = await coursesCollections.findOne({
+          _id: new ObjectId(id),
+        }); // Find course by ID
         if (!course) {
           return res.status(404).send({ message: "Course not found" });
         }
@@ -797,13 +825,13 @@ async function run() {
       }
     });
 
-    // course update 
+    // course update
 
     app.put("/courses/:id", async (req, res) => {
-      const {course_name, description, video, course_price, } = req.body;
+      const { course_name, description, video, course_price } = req.body;
       const _id = req.params.id;
-      console.log("🚀 ~ app.put ~ _id:", _id)
-      const thumbnail_image = req.file?.path; 
+      console.log("🚀 ~ app.put ~ _id:", _id);
+      const thumbnail_image = req.file?.path;
       try {
         const query = { _id: new ObjectId(_id) };
         const updateData = {
@@ -814,20 +842,25 @@ async function run() {
           ...(thumbnail_image && { thumbnail_image }),
         };
 
-        const result = await coursesCollections.updateOne(query, { $set: updateData });
+        const result = await coursesCollections.updateOne(query, {
+          $set: updateData,
+        });
         if (result.modifiedCount === 0) {
-          return res.status(404).send({ message: "Course not found or no changes made." });
+          return res
+            .status(404)
+            .send({ message: "Course not found or no changes made." });
         }
 
-        res.status(200).send({ message: "Course updated successfully", result });
+        res
+          .status(200)
+          .send({ message: "Course updated successfully", result });
       } catch (error) {
         console.error("Error updating course:", error);
         res.status(500).send({ message: "Failed to update course", error });
       }
     });
 
-
-    // course delete 
+    // course delete
 
     app.delete("/courses/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
@@ -843,8 +876,6 @@ async function run() {
         res.status(500).send({ message: "Error deleting user", error });
       }
     });
-
-
 
     await client.db("admin").command({ ping: 1 });
     console.log(
