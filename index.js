@@ -7,7 +7,6 @@ const SSLCommerzPayment = require("sslcommerz-lts");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const body_parser = require("body-parser");
 
-
 require("dotenv").config();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -29,7 +28,6 @@ const storage = new CloudinaryStorage({
   },
 });
 const upload = multer({ storage });
-;
 // MiddleWare
 app.use(
   cors({
@@ -340,6 +338,44 @@ async function run() {
       }
     });
 
+    //handle task for student / user
+    app.put("/handle-task-user/:id", verifyJWT, async (req, res) => {
+      const taskId = req.params.id;
+      const { userId } = req.body;
+
+      try {
+        const query = {
+          _id: new ObjectId(userId),
+          "tasks._id": new ObjectId(taskId),
+        };
+
+        const user = await userCollections.findOne({
+          _id: new ObjectId(userId),
+        });
+
+        if (!user) {
+          return res.status(404).json({ message: "User not found" });
+        }
+        const update = {
+          $set: {
+            "tasks.$.taskStatus": "submitted",
+          },
+        };
+        const result = await userCollections.updateOne(query, update);
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ message: "Task or user not found" });
+        }
+
+        res.status(200).json({
+          message: `Task successfully submitted`,
+        });
+      } catch (error) {
+        console.error(`Error handling task submitted:`, error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
     // Check user authentication status
     app.get("/auth-status", verifyJWT, async (req, res) => {
       res.status(200).send({ isLoggedIn: true, role: req.user.role });
@@ -405,11 +441,30 @@ async function run() {
       try {
         const user = await userCollections.findOne({ _id: new ObjectId(id) });
         if (user) {
-          const { _id, name, phone, role, subRole, status, tasks, coins, code, level } =
-            user;
-          res
-            .status(200)
-            .send({ _id, name, phone, role, subRole, status, tasks, coins, code, level });
+          const {
+            _id,
+            name,
+            phone,
+            role,
+            subRole,
+            status,
+            tasks,
+            coins,
+            code,
+            level,
+          } = user;
+          res.status(200).send({
+            _id,
+            name,
+            phone,
+            role,
+            subRole,
+            status,
+            tasks,
+            coins,
+            code,
+            level,
+          });
         } else {
           res.status(404).send({ message: "User not found" });
         }
@@ -746,7 +801,6 @@ async function run() {
       }
     });
 
-
     // app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
     //   try {
     //     const { course_name, description, video, course_price } = req.body;
@@ -775,19 +829,17 @@ async function run() {
 
     // Configure multer for file uploads
 
-
-
     app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
       try {
         const { course_name, description, video, course_price } = req.body;
         const file = req.file; // Uploaded file
-    
+
         if (!file) {
           return res
             .status(400)
             .send({ message: "Thumbnail image is required." });
         }
-    
+
         const newCourse = {
           course_name,
           description,
@@ -796,7 +848,7 @@ async function run() {
           course_price: parseFloat(course_price),
           created_at: new Date(),
         };
-    
+
         const result = await coursesCollections.insertOne(newCourse);
         res.status(200).send({ message: "Course added successfully", result });
       } catch (error) {
