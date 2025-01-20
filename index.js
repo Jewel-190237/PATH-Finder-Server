@@ -152,6 +152,9 @@ async function run() {
       res.status(200).send(result);
     });
 
+    // Update user information
+
+
     // Route to approve user status
     app.put("/users/:id/approve", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
@@ -311,15 +314,15 @@ async function run() {
         const update =
           action === "accept"
             ? {
-                $inc: { coins: parseInt(coin, 10) },
-                $set: {
-                  "tasks.$.taskStatus": "accepted",
-                  ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
-                },
-              }
+              $inc: { coins: parseInt(coin, 10) },
+              $set: {
+                "tasks.$.taskStatus": "accepted",
+                ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
+              },
+            }
             : {
-                $set: { "tasks.$.taskStatus": "rejected" },
-              };
+              $set: { "tasks.$.taskStatus": "rejected" },
+            };
 
         // Update the user
         const result = await userCollections.updateOne(query, update);
@@ -441,35 +444,54 @@ async function run() {
       try {
         const user = await userCollections.findOne({ _id: new ObjectId(id) });
         if (user) {
-          const {
-            _id,
-            name,
-            phone,
-            role,
-            subRole,
-            status,
-            tasks,
-            coins,
-            code,
-            level,
-          } = user;
-          res.status(200).send({
-            _id,
-            name,
-            phone,
-            role,
-            subRole,
-            status,
-            tasks,
-            coins,
-            code,
-            level,
-          });
+          const { _id, name, phone, role, subRole, status, tasks, coins, code, level } =
+            user;
+          res
+            .status(200)
+            .send({ _id, name, phone, role, subRole, status, tasks, coins, code, level });
         } else {
           res.status(404).send({ message: "User not found" });
         }
       } catch (error) {
         res.status(500).send({ message: "Error fetching user", error });
+      }
+    });
+
+    app.put("/users/:id", async (req, res) => {
+      const _id = req.params.id; // Extract ID from the route parameter
+      const updatedUser = req.body; // Extract updated user data from the request body
+      console.log("User ID:", _id, "Updated Data:", updatedUser);
+      try {
+        // Validate the ID format
+        if (!ObjectId.isValid(_id)) {
+          return res.status(400).send({ message: "Invalid user ID format." });
+        }
+
+        // Ensure `_id` in the payload is removed to avoid conflicts
+        if (updatedUser._id) {
+          delete updatedUser._id;
+        }
+
+        // Add the correct `_id` back into the payload
+        updatedUser._id = new ObjectId(_id);
+
+        // Validate the updated user data
+        if (!updatedUser || typeof updatedUser !== "object" || Object.keys(updatedUser).length === 0) {
+          return res.status(400).send({ message: "Invalid user data provided." });
+        }
+
+        // Replace the entire document with the updated user object
+        const query = { _id: new ObjectId(_id) };
+        const result = await userCollections.replaceOne(query, updatedUser);
+
+        if (result.modifiedCount > 0) {
+          return res.status(200).send({ message: "User updated successfully." });
+        } else {
+          return res.status(304).send({ message: "No changes made to the user." });
+        }
+      } catch (error) {
+        console.error("Error updating user:", error.message);
+        return res.status(500).send({ message: `Failed to update user: ${error.message}` });
       }
     });
 
@@ -801,6 +823,7 @@ async function run() {
       }
     });
 
+
     // app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
     //   try {
     //     const { course_name, description, video, course_price } = req.body;
@@ -828,6 +851,8 @@ async function run() {
     // });
 
     // Configure multer for file uploads
+
+
 
     app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
       try {
@@ -887,13 +912,14 @@ async function run() {
       }
     });
 
-    // course update
+
+
 
     app.put("/courses/:id", async (req, res) => {
       const { course_name, description, video, course_price } = req.body;
       const _id = req.params.id;
-      console.log("🚀 ~ app.put ~ _id:", _id);
-      const thumbnail_image = req.file?.path;
+      const thumbnail_image = req.file?.path;  // This should point to the uploaded image file
+
       try {
         const query = { _id: new ObjectId(_id) };
         const updateData = {
@@ -901,28 +927,22 @@ async function run() {
           description,
           video,
           course_price,
-          ...(thumbnail_image && { thumbnail_image }),
+          ...(thumbnail_image && { thumbnail_image }),  // Only add this if an image is uploaded
         };
 
-        const result = await coursesCollections.updateOne(query, {
-          $set: updateData,
-        });
+        const result = await coursesCollections.updateOne(query, { $set: updateData });
         if (result.modifiedCount === 0) {
-          return res
-            .status(404)
-            .send({ message: "Course not found or no changes made." });
+          return res.status(404).send({ message: "Course not found or no changes made." });
         }
 
-        res
-          .status(200)
-          .send({ message: "Course updated successfully", result });
+        res.status(200).send({ message: "Course updated successfully", result });
       } catch (error) {
         console.error("Error updating course:", error);
         res.status(500).send({ message: "Failed to update course", error });
       }
     });
 
-    // course delete
+
 
     app.delete("/courses/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
@@ -930,12 +950,12 @@ async function run() {
       try {
         const result = await coursesCollections.deleteOne(query);
         if (result.deletedCount === 1) {
-          res.status(200).send({ message: "User deleted successfully" });
+          res.status(200).send({ message: "Course deleted successfully" }); // Corrected message
         } else {
-          res.status(404).send({ message: "User not found" });
+          res.status(404).send({ message: "Course not found" }); // Consistent naming
         }
       } catch (error) {
-        res.status(500).send({ message: "Error deleting user", error });
+        res.status(500).send({ message: "Error deleting course", error }); // Consistent naming
       }
     });
 
