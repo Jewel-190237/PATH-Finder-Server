@@ -849,7 +849,6 @@ async function run() {
               message: "No projects found for this user",
             });
         }
-
         res.status(200).json({ success: true, projects });
       } catch (error) {
         console.error("Error fetching projects by user ID:", error);
@@ -858,6 +857,26 @@ async function run() {
           .json({ success: false, message: "Failed to fetch projects" });
       }
     });
+
+    // get all projects
+    app.get("/all-project", verifyJWT,verifyAdmin, async (req, res) => {
+      try {
+        const projects = await projectCollections.find({}).toArray();
+    
+        if (!projects.length) {
+          return res.status(404).json({
+            success: false,
+            message: "No projects found",
+          });
+        }
+    
+        res.status(200).json({ success: true, projects });
+      } catch (error) {
+        console.error("Error fetching all projects:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch projects" });
+      }
+    });
+    
 
     await client.db("admin").command({ ping: 1 });
     console.log(
