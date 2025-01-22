@@ -98,6 +98,7 @@ async function run() {
     const coursesCollections = client.db("PATH-FINDER").collection("courses");
     const orderCollections = client.db("PATH-FINDER").collection("orders");
     const projectCollections = client.db("PATH-FINDER").collection("projects");
+    const announcementCollection = client.db("PATH-FINDER").collection("announcement");
     const allocatedSeatCollections = client
       .db("Bus-Ticket")
       .collection("allocatedSeat");
@@ -842,12 +843,10 @@ async function run() {
         const projects = await projectCollections.find({ userId }).toArray();
 
         if (!projects.length) {
-          return res
-            .status(404)
-            .json({
-              success: false,
-              message: "No projects found for this user",
-            });
+          return res.status(404).json({
+            success: false,
+            message: "No projects found for this user",
+          });
         }
         res.status(200).json({ success: true, projects });
       } catch (error) {
@@ -859,24 +858,60 @@ async function run() {
     });
 
     // get all projects
-    app.get("/all-project", verifyJWT,verifyAdmin, async (req, res) => {
+    app.get("/all-project", verifyJWT, verifyAdmin, async (req, res) => {
       try {
         const projects = await projectCollections.find({}).toArray();
-    
+
         if (!projects.length) {
           return res.status(404).json({
             success: false,
             message: "No projects found",
           });
         }
-    
+
         res.status(200).json({ success: true, projects });
       } catch (error) {
         console.error("Error fetching all projects:", error);
-        res.status(500).json({ success: false, message: "Failed to fetch projects" });
+        res
+          .status(500)
+          .json({ success: false, message: "Failed to fetch projects" });
       }
     });
-    
+
+    // post announcement
+    app.post("/announcement",verifyJWT, verifyAdmin, async (req, res) => {
+      const { announcement } = req.body;
+      if (!announcement) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Announcement is required" });
+      }
+      try {
+        const newAnnouncement = {
+          announcement,
+          createdAt: new Date(),
+        };
+
+        const result = await announcementCollection.insertOne(newAnnouncement);
+        res.status(201).json({
+          success: true,
+          message: "Announcement added successfully",
+          announcementId: result.insertedId,
+        });
+      } catch (error) {
+        console.error("Error adding announcement:", error);
+      }
+    });
+
+    // get all announcements
+    app.get("/all-announcement", verifyJWT,verifyAdmin, async (req, res) => {
+      try {
+        const announcements = await announcementCollection.find({}).toArray();
+        res.status(200).json({ success: true, announcements });
+      } catch (error) {
+        console.error("Error fetching announcements:", error);
+      }
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
