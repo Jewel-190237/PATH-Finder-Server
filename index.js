@@ -98,7 +98,9 @@ async function run() {
     const coursesCollections = client.db("PATH-FINDER").collection("courses");
     const orderCollections = client.db("PATH-FINDER").collection("orders");
     const projectCollections = client.db("PATH-FINDER").collection("projects");
-    const announcementCollection = client.db("PATH-FINDER").collection("announcement");
+    const announcementCollection = client
+      .db("PATH-FINDER")
+      .collection("announcement");
     const allocatedSeatCollections = client
       .db("Bus-Ticket")
       .collection("allocatedSeat");
@@ -879,9 +881,9 @@ async function run() {
     });
 
     // post announcement
-    app.post("/announcement",verifyJWT, verifyAdmin, async (req, res) => {
-      const { announcement } = req.body;
-      if (!announcement) {
+    app.post("/announcement", verifyJWT, verifyAdmin, async (req, res) => {
+      const { announcement, title } = req.body;
+      if (!announcement || !title) {
         return res
           .status(400)
           .json({ success: false, message: "Announcement is required" });
@@ -889,6 +891,7 @@ async function run() {
       try {
         const newAnnouncement = {
           announcement,
+          title,
           createdAt: new Date(),
         };
 
@@ -904,7 +907,7 @@ async function run() {
     });
 
     // get all announcements
-    app.get("/all-announcement", verifyJWT,verifyAdmin, async (req, res) => {
+    app.get("/all-announcement", verifyJWT, async (req, res) => {
       try {
         const announcements = await announcementCollection.find({}).toArray();
         res.status(200).json({ success: true, announcements });
@@ -912,6 +915,34 @@ async function run() {
         console.error("Error fetching announcements:", error);
       }
     });
+
+    // delete a specefic announcement
+    app.delete("/announcement/:announcementId", verifyJWT, verifyAdmin, async (req, res) => {
+        const { announcementId } = req.params;
+        if (!announcementId) {
+          return res
+            .status(400)
+            .json({ success: false, message: "Announcement ID is required" });
+        }
+        try {
+          const result = await announcementCollection.deleteOne({
+            _id: new ObjectId(announcementId),
+          });
+          if (result.deletedCount === 1) {
+            res.status(200).json({
+              success: true,
+              message: "Announcement deleted successfully",
+            });
+          } else {
+            res
+              .status(404)
+              .json({ success: false, message: "Announcement not found" });
+          }
+        } catch (error) {
+          console.error("Error deleting announcement:", error);
+        }
+      }
+    );
 
     await client.db("admin").command({ ping: 1 });
     console.log(
