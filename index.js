@@ -97,6 +97,7 @@ async function run() {
     const userCollections = client.db("PATH-FINDER").collection("users");
     const coursesCollections = client.db("PATH-FINDER").collection("courses");
     const orderCollections = client.db("PATH-FINDER").collection("orders");
+    const projectCollections = client.db("PATH-FINDER").collection("projects");
     const allocatedSeatCollections = client
       .db("Bus-Ticket")
       .collection("allocatedSeat");
@@ -688,219 +689,7 @@ async function run() {
       }
     });
 
-    // Offline Payment
-    app.post("/paymentoffline", async (req, res) => {
-      const {
-        price,
-        name,
-        email,
-        location,
-        address,
-        phone,
-        allocatedSeat,
-        busName,
-        counterMaster,
-        selectedRoute,
-        date,
-      } = req.body;
-      const tran_id = new ObjectId().toString();
-
-      const order = {
-        price,
-        name,
-        phone,
-        email,
-        location,
-        address,
-        allocatedSeat,
-        tran_id,
-        status: "offline",
-        busName,
-        counterMaster,
-        selectedRoute,
-        date,
-      };
-
-      try {
-        const result = await busOrderCollection.insertOne(order);
-        const blockedSeat = await allocatedSeatCollections.insertOne(order);
-
-        if (result.insertedId) {
-          res.json({
-            redirectUrl: `http://localhost:5173/payment/success/${tran_id}`,
-          });
-        } else {
-          res.status(500).json({ message: "Failed to create order" });
-        }
-      } catch (error) {
-        console.error("Error inserting order:", error);
-        res.status(500).json({ message: "Server error" });
-      }
-    });
-
-    // Payment integration
-    app.post("/payment", async (req, res) => {
-      const price = req.body.price;
-      const name = req.body.name;
-      const email = req.body.email;
-      const location = req.body.location;
-      const address = req.body.address;
-      const phone = req.body.phone;
-      const allocatedSeat = req.body.allocatedSeat;
-      const busName = req.body.busName;
-      const counterMaster = req.body.counterMaster;
-      const selectedRoute = req.body.selectedRoute;
-      const date = req.body.date;
-
-      const tran_id = new ObjectId().toString();
-      const data = {
-        total_amount: price,
-        currency: "BDT",
-        tran_id: tran_id,
-        success_url: `http://localhost:5000/payment/success/${tran_id}`,
-        fail_url: `http://localhost:5000/payment/fail/${tran_id}`,
-        cancel_url: "http://localhost:3030/cancel",
-        ipn_url: "http://localhost:3030/ipn",
-        shipping_method: "Courier",
-        product_name: "Computer.",
-        product_category: "Electronic",
-        product_profile: "general",
-        cus_name: name,
-        cus_email: email,
-        cus_add1: address,
-        cus_add2: "Dhaka",
-        cus_city: "Dhaka",
-        cus_state: "Dhaka",
-        cus_postcode: "1000",
-        cus_country: "Bangladesh",
-        cus_phone: phone,
-        cus_fax: "01711111111",
-        ship_name: "Customer Name",
-        ship_add1: "Dhaka",
-        ship_add2: "Dhaka",
-        ship_city: "Dhaka",
-        ship_state: "Dhaka",
-        ship_postcode: 1000,
-        ship_country: "Bangladesh",
-        location: location,
-        allocatedSeat: allocatedSeat,
-      };
-
-      const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live);
-      sslcz
-        .init(data)
-        .then((apiResponse) => {
-          // console.log('API Response:', apiResponse); // Log full response for debugging
-          if (apiResponse.GatewayPageURL) {
-            // Redirect the user to payment gateway
-            let GatewayPageURL = apiResponse.GatewayPageURL;
-            res.send({ url: GatewayPageURL });
-
-            const order = {
-              price: price,
-              name: name,
-              phone: phone,
-              email: email,
-              location: location,
-              address: address,
-              allocatedSeat: allocatedSeat,
-              tran_id: tran_id,
-              status: "loading",
-              busName: busName,
-              counterMaster: counterMaster,
-              selectedRoute: selectedRoute,
-              date: date,
-            };
-
-            const result = busOrderCollection.insertOne(order);
-            const blockedSeat = allocatedSeatCollections.insertOne(order);
-
-            console.log("Redirecting to: ", GatewayPageURL);
-          } else {
-            res.status(400).send({
-              error: "Failed to get GatewayPageURL",
-              details: apiResponse,
-            });
-          }
-        })
-        .catch((error) => {
-          console.error("SSLCommerz API Error:", error);
-          res
-            .status(500)
-            .send({ error: "Payment initialization failed", details: error });
-        });
-    });
-
-    // payment success
-    app.post("/payment/success/:tran_id", async (req, res) => {
-      const result = await busOrderCollection.updateOne(
-        { tran_id: req.params.tran_id },
-        {
-          $set: { status: "paid" },
-        }
-      );
-      const success = await allocatedSeatCollections.updateOne(
-        { tran_id: req.params.tran_id },
-        {
-          $set: { status: "paid" },
-        }
-      );
-      if (result.modifiedCount > 0) {
-        res.redirect(
-          `http://localhost:5173/payment/success/${req.params.tran_id}`
-        );
-      }
-    });
-
-    //payment fail
-    app.post("/payment/fail/:tran_id", async (req, res) => {
-      const result = await busOrderCollection.deleteOne({
-        tran_id: req.params.tran_id,
-      });
-
-      const seat = await allocatedSeatCollections.deleteOne({
-        tran_id: req.params.tran_id,
-      });
-
-      if (result.deletedCount > 0 && seat.deletedCount > 0) {
-        res.redirect(
-          `http://localhost:5173/payment/fail/${req.params.tran_id}`
-        );
-      } else {
-        res
-          .status(500)
-          .send({ message: "Failed to delete order or seat data" });
-      }
-    });
-
-    // app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
-    //   try {
-    //     const { course_name, description, video, course_price } = req.body;
-    //     const file = req.file; // The uploaded file
-
-    //     if (!file) {
-    //       return res.status(400).send({ message: "Thumbnail image is required." });
-    //     }
-
-    //     const newCourse = {
-    //       course_name,
-    //       description,
-    //       thumbnail_image: file.originalname, // Save file name or path
-    //       video,
-    //       course_price: parseFloat(course_price),
-    //       created_at: new Date(),
-    //     };
-
-    //     const result = await coursesCollections.insertOne(newCourse);
-    //     res.status(200).send({ message: "Course added successfully", result });
-    //   } catch (error) {
-    //     console.error("Error adding course:", error);
-    //     res.status(500).send({ message: "Failed to add course", error });
-    //   }
-    // });
-
     // Configure multer for file uploads
-
     app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
       try {
         const { course_name, description, video, course_price } = req.body;
@@ -930,7 +719,6 @@ async function run() {
     });
 
     //get course
-
     app.get("/courses", async (req, res) => {
       try {
         const user = coursesCollections.find();
@@ -1004,6 +792,70 @@ async function run() {
         }
       } catch (error) {
         res.status(500).send({ message: "Error deleting course", error }); // Consistent naming
+      }
+    });
+
+    // create project
+    app.post("/add-new-project", async (req, res) => {
+      const { userId, ProjectName, problem, idea, solve } = req.body;
+
+      if (!userId || !ProjectName || !problem || !idea || !solve) {
+        return res
+          .status(400)
+          .json({ success: false, message: "All fields are required" });
+      }
+      const newProject = {
+        userId,
+        ProjectName,
+        problem,
+        idea,
+        solve,
+        createdAt: new Date(),
+      };
+
+      try {
+        const result = await projectCollections.insertOne(newProject);
+        res.status(201).json({
+          success: true,
+          message: "Project added successfully",
+          projectId: result.insertedId,
+        });
+      } catch (error) {
+        console.error("Error adding project:", error);
+        res
+          .status(500)
+          .json({ success: false, message: "Failed to add project" });
+      }
+    });
+
+    // get a specific user project
+    app.get("/projects/:userId", verifyJWT, async (req, res) => {
+      const { userId } = req.params;
+
+      if (!userId) {
+        return res
+          .status(400)
+          .json({ success: false, message: "User ID is required" });
+      }
+
+      try {
+        const projects = await projectCollections.find({ userId }).toArray();
+
+        if (!projects.length) {
+          return res
+            .status(404)
+            .json({
+              success: false,
+              message: "No projects found for this user",
+            });
+        }
+
+        res.status(200).json({ success: true, projects });
+      } catch (error) {
+        console.error("Error fetching projects by user ID:", error);
+        res
+          .status(500)
+          .json({ success: false, message: "Failed to fetch projects" });
       }
     });
 
