@@ -98,6 +98,7 @@ async function run() {
     const coursesCollections = client.db("PATH-FINDER").collection("courses");
     const orderCollections = client.db("PATH-FINDER").collection("orders");
     const projectCollections = client.db("PATH-FINDER").collection("projects");
+    const postCollections = client.db("PATH-FINDER").collection("posts");
     const announcementCollection = client
       .db("PATH-FINDER")
       .collection("announcement");
@@ -916,8 +917,12 @@ async function run() {
       }
     });
 
-    // delete a specefic announcement
-    app.delete("/announcement/:announcementId", verifyJWT, verifyAdmin, async (req, res) => {
+    // delete a specific announcement
+    app.delete(
+      "/announcement/:announcementId",
+      verifyJWT,
+      verifyAdmin,
+      async (req, res) => {
         const { announcementId } = req.params;
         if (!announcementId) {
           return res
@@ -943,6 +948,85 @@ async function run() {
         }
       }
     );
+
+    // post a post for user
+    app.post("/post", verifyJWT, async (req, res) => {
+      const { announcement, title, userId, name } = req.body;
+      if (!announcement || !title) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Post is required" });
+      }
+      try {
+        const newAnnouncement = {
+          announcement,
+          title,
+          userId,
+          name,
+          createdAt: new Date(),
+        };
+
+        const result = await postCollections.insertOne(newAnnouncement);
+        res.status(201).json({
+          success: true,
+          message: "Post added successfully",
+          announcementId: result.insertedId,
+        });
+      } catch (error) {
+        console.error("Error adding post:", error);
+      }
+    });
+
+    // get post for specific user
+    app.get("/all-post/:userId", verifyJWT, async (req, res) => {
+      const { userId } = req.params;
+      try {
+        if (!userId) {
+          return res
+            .status(400)
+            .json({ success: false, message: "User ID is required" });
+        }
+        const announcements = await postCollections.find({ userId }).toArray();
+        res.status(200).json({ success: true, announcements });
+      } catch (error) {
+        console.error("Error fetching Posts :", error);
+      }
+    });
+    // get all post
+    app.get("/all-post", verifyJWT, async (req, res) => {
+      try {
+        
+        const announcements = await postCollections.find({  }).toArray();
+        res.status(200).json({ success: true, announcements });
+      } catch (error) {
+        console.error("Error fetching Posts :", error);
+      }
+    });
+
+    // delete a specific post
+    app.delete("/post/:announcementId", verifyJWT, async (req, res) => {
+      const { announcementId } = req.params;
+      if (!announcementId) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Post ID is required" });
+      }
+      try {
+        const result = await postCollections.deleteOne({
+          _id: new ObjectId(announcementId),
+        });
+        if (result.deletedCount === 1) {
+          res.status(200).json({
+            success: true,
+            message: "Post deleted successfully",
+          });
+        } else {
+          res.status(404).json({ success: false, message: "Post not found" });
+        }
+      } catch (error) {
+        console.error("Error deleting Post:", error);
+      }
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
