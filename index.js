@@ -115,7 +115,7 @@ async function run() {
 
       try {
         // Find orders for the given userId
-        const orders = await orderCollections.find({ userId }).toArray();
+        const orders = await orderCollections.find({ userId, status: "paid" }).toArray();
 
         if (!orders.length) {
           return res
@@ -316,15 +316,15 @@ async function run() {
         const update =
           action === "accept"
             ? {
-                $inc: { coins: parseInt(coin, 10) },
-                $set: {
-                  "tasks.$.taskStatus": "accepted",
-                  ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
-                },
-              }
+              $inc: { coins: parseInt(coin, 10) },
+              $set: {
+                "tasks.$.taskStatus": "accepted",
+                ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
+              },
+            }
             : {
-                $set: { "tasks.$.taskStatus": "rejected" },
-              };
+              $set: { "tasks.$.taskStatus": "rejected" },
+            };
 
         // Update the user
         const result = await userCollections.updateOne(query, update);
@@ -446,11 +446,11 @@ async function run() {
       try {
         const user = await userCollections.findOne({ _id: new ObjectId(id) });
         if (user) {
-          const { _id, password, name, phone, role, subRole, status, tasks, coins, code, level,facebookLink, address,country,district,fatherContactNumber,motherContactNumber,telegramLink,whatsappLink,zipCode  } =
+          const { _id, password, name, phone, role, subRole, status, tasks, coins, code, level, facebookLink, address, country, district, fatherContactNumber, motherContactNumber, telegramLink, whatsappLink, zipCode } =
             user;
           res
             .status(200)
-            .send({ _id, name,password, phone, role, subRole, status, tasks, coins, code, level,facebookLink,address,country,district,fatherContactNumber,motherContactNumber,telegramLink,whatsappLink,zipCode });
+            .send({ _id, name, password, phone, role, subRole, status, tasks, coins, code, level, facebookLink, address, country, district, fatherContactNumber, motherContactNumber, telegramLink, whatsappLink, zipCode });
         } else {
           res.status(404).send({ message: "User not found" });
         }
@@ -462,15 +462,15 @@ async function run() {
     app.put("/users/:id", async (req, res) => {
       const _id = req.params.id; // Extract ID from the route parameter
       const updatedUser = req.body; // Extract updated user data from the request body
-    
+
       console.log("User ID:", _id, "Updated Data:", updatedUser);
-    
+
       try {
         // Validate the ID format
         if (!ObjectId.isValid(_id)) {
           return res.status(400).send({ message: "Invalid user ID format." });
         }
-    
+
         // Validate the updated user data
         if (
           !updatedUser ||
@@ -481,19 +481,19 @@ async function run() {
             .status(400)
             .send({ message: "Invalid user data provided." });
         }
-    
+
         // Remove `_id` from the `updatedUser` object to avoid conflicts
         delete updatedUser._id;
-    
+
         // Define the query to find the user by ID
         const query = { _id: new ObjectId(_id) };
-    
+
         // Use `$set` to update only the provided fields in the database
         const updateDocument = { $set: updatedUser };
-    
+
         // Perform the update operation
         const result = await userCollections.updateOne(query, updateDocument);
-    
+
         if (result.modifiedCount > 0) {
           return res.status(200).send({ message: "User updated successfully." });
         } else if (result.matchedCount > 0) {
@@ -508,7 +508,7 @@ async function run() {
           .send({ message: `Failed to update user: ${error.message}` });
       }
     });
-    
+
 
     // Get all users
     app.get("/users", async (req, res) => {
@@ -657,15 +657,15 @@ async function run() {
       try {
         const { course_name, description, videos, course_price } = req.body;
         const file = req.file;
-    
+
         if (!file) {
           return res
             .status(400)
             .send({ message: "Thumbnail image is required." });
         }
-    
+
         const parsedVideos = JSON.parse(videos); // Parse the videos JSON string
-    
+
         const newCourse = {
           course_name,
           description,
@@ -674,7 +674,7 @@ async function run() {
           course_price: parseFloat(course_price),
           created_at: new Date(),
         };
-    
+
         const result = await coursesCollections.insertOne(newCourse);
         res.status(200).send({ message: "Course added successfully", result });
       } catch (error) {
@@ -682,7 +682,7 @@ async function run() {
         res.status(500).send({ message: "Failed to add course", error });
       }
     });
-    
+
 
     //get course
     app.get("/courses", async (req, res) => {
@@ -717,35 +717,35 @@ async function run() {
       try {
         const { id } = req.params; // Extract course ID from URL parameter
         const { course_name, course_price, description, videos } = req.body; // Extract data from the request body
-       console.log("id", id)
+        console.log("id", id)
         console.log("Request Body:", req.body); // Log request body for debugging
         console.log("Videos:", videos); // Log videos field for debugging
-    
+
         const course = await Courses.findById(id); // Find the course by ID
         if (!course) {
           return res.status(404).json({ message: "Course not found" });
         }
-    
+
         // Update course fields
         course.course_name = course_name || course.course_name;
         course.course_price = course_price || course.course_price;
         course.description = description || course.description;
-    
+
         // Update videos if provided
         if (videos) {
           course.videos = Array.isArray(videos) ? videos : [videos]; // Ensure videos is an array
         }
-    
+
         await course.save(); // Save the updated course
-    
+
         res.json({ message: "Course updated successfully", course });
       } catch (error) {
         console.error("Error in PUT /courses/:id:", error); // Log the error for debugging
         res.status(500).json({ message: "Server error", error: error.message });
       }
     });
-    
-    
+
+
 
     app.delete("/courses/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
@@ -764,7 +764,7 @@ async function run() {
 
     // create project
     app.post("/add-new-project", async (req, res) => {
-      const { userId, ProjectName, problem, idea, solve } = req.body;
+      const { userId, ProjectName, problem, idea, solve, userName } = req.body;
 
       if (!userId || !ProjectName || !problem || !idea || !solve) {
         return res
@@ -777,6 +777,7 @@ async function run() {
         problem,
         idea,
         solve,
+        userName,
         createdAt: new Date(),
       };
 
@@ -795,209 +796,237 @@ async function run() {
       }
     });
 
+    // delete a project
+    app.delete("/projects/:projectId", verifyJWT, verifyAdmin, async (req, res) => {
+      const { projectId } = req.params;
+
+      if (!projectId) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Project ID is required" });
+      }
+
+      try {
+        const result = await projectCollections.deleteOne({
+          _id: new ObjectId(projectId),
+        });
+
+        if (result.deletedCount === 1) {
+          res.status(200).json({ success: true, message: "Project deleted" });
+        } else {
+          res.status(404).json({ success: false, message: "Project not found" });
+        }
+      } catch (error) {
+        console.error("Error deleting project:", error);
+        res
+          .status(500)
+          .json({ success: false, message: "Failed to delete project" });
+      }
+    });
+
     // get a specific user project
     app.get("/projects/:userId", verifyJWT, async (req, res) => {
-      const { userId } = req.params;
+    const { userId } = req.params;
 
-      if (!userId) {
-        return res
-          .status(400)
-          .json({ success: false, message: "User ID is required" });
-      }
+    if (!userId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "User ID is required" });
+    }
 
-      try {
-        const projects = await projectCollections.find({ userId }).toArray();
+    try {
+      const projects = await projectCollections.find({ userId }).toArray();
 
-        if (!projects.length) {
-          return res.status(404).json({
-            success: false,
-            message: "No projects found for this user",
-          });
-        }
-        res.status(200).json({ success: true, projects });
-      } catch (error) {
-        console.error("Error fetching projects by user ID:", error);
-        res
-          .status(500)
-          .json({ success: false, message: "Failed to fetch projects" });
-      }
-    });
-
-    // get all projects
-    app.get("/all-project", verifyJWT, verifyAdmin, async (req, res) => {
-      try {
-        const projects = await projectCollections.find({}).toArray();
-
-        if (!projects.length) {
-          return res.status(404).json({
-            success: false,
-            message: "No projects found",
-          });
-        }
-
-        res.status(200).json({ success: true, projects });
-      } catch (error) {
-        console.error("Error fetching all projects:", error);
-        res
-          .status(500)
-          .json({ success: false, message: "Failed to fetch projects" });
-      }
-    });
-
-    // post announcement
-    app.post("/announcement", verifyJWT, verifyAdmin, async (req, res) => {
-      const { announcement, title } = req.body;
-      if (!announcement || !title) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Announcement is required" });
-      }
-      try {
-        const newAnnouncement = {
-          announcement,
-          title,
-          createdAt: new Date(),
-        };
-
-        const result = await announcementCollection.insertOne(newAnnouncement);
-        res.status(201).json({
-          success: true,
-          message: "Announcement added successfully",
-          announcementId: result.insertedId,
+      if (!projects.length) {
+        return res.status(404).json({
+          success: false,
+          message: "No projects found for this user",
         });
-      } catch (error) {
-        console.error("Error adding announcement:", error);
       }
-    });
+      res.status(200).json({ success: true, projects });
+    } catch (error) {
+      console.error("Error fetching projects by user ID:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Failed to fetch projects" });
+    }
+  });
 
-    // get all announcements
-    app.get("/all-announcement", verifyJWT, async (req, res) => {
-      try {
-        const announcements = await announcementCollection.find({}).toArray();
-        res.status(200).json({ success: true, announcements });
-      } catch (error) {
-        console.error("Error fetching announcements:", error);
-      }
-    });
+  // get all projects
+  app.get("/all-project", verifyJWT, verifyAdmin, async (req, res) => {
+    try {
+      const projects = await projectCollections.find({}).toArray();
 
-    // delete a specific announcement
-    app.delete(
-      "/announcement/:announcementId",
-      verifyJWT,
-      verifyAdmin,
-      async (req, res) => {
-        const { announcementId } = req.params;
-        if (!announcementId) {
-          return res
-            .status(400)
-            .json({ success: false, message: "Announcement ID is required" });
-        }
-        try {
-          const result = await announcementCollection.deleteOne({
-            _id: new ObjectId(announcementId),
-          });
-          if (result.deletedCount === 1) {
-            res.status(200).json({
-              success: true,
-              message: "Announcement deleted successfully",
-            });
-          } else {
-            res
-              .status(404)
-              .json({ success: false, message: "Announcement not found" });
-          }
-        } catch (error) {
-          console.error("Error deleting announcement:", error);
-        }
-      }
-    );
-
-    // post a post for user
-    app.post("/post", verifyJWT, async (req, res) => {
-      const { announcement, title, userId, name } = req.body;
-      if (!announcement || !title) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Post is required" });
-      }
-      try {
-        const newAnnouncement = {
-          announcement,
-          title,
-          userId,
-          name,
-          createdAt: new Date(),
-        };
-
-        const result = await postCollections.insertOne(newAnnouncement);
-        res.status(201).json({
-          success: true,
-          message: "Post added successfully",
-          announcementId: result.insertedId,
+      if (!projects.length) {
+        return res.status(404).json({
+          success: false,
+          message: "No projects found",
         });
-      } catch (error) {
-        console.error("Error adding post:", error);
       }
-    });
 
-    // get post for specific user
-    app.get("/all-post/:userId", verifyJWT, async (req, res) => {
-      const { userId } = req.params;
-      try {
-        if (!userId) {
-          return res
-            .status(400)
-            .json({ success: false, message: "User ID is required" });
-        }
-        const announcements = await postCollections.find({ userId }).toArray();
-        res.status(200).json({ success: true, announcements });
-      } catch (error) {
-        console.error("Error fetching Posts :", error);
-      }
-    });
-    // get all post
-    app.get("/all-post", verifyJWT, async (req, res) => {
-      try {
-        
-        const announcements = await postCollections.find({  }).toArray();
-        res.status(200).json({ success: true, announcements });
-      } catch (error) {
-        console.error("Error fetching Posts :", error);
-      }
-    });
+      res.status(200).json({ success: true, projects });
+    } catch (error) {
+      console.error("Error fetching all projects:", error);
+      res
+        .status(500)
+        .json({ success: false, message: "Failed to fetch projects" });
+    }
+  });
 
-    // delete a specific post
-    app.delete("/post/:announcementId", verifyJWT, async (req, res) => {
+  // post announcement
+  app.post("/announcement", verifyJWT, verifyAdmin, async (req, res) => {
+    const { announcement, title } = req.body;
+    if (!announcement || !title) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Announcement is required" });
+    }
+    try {
+      const newAnnouncement = {
+        announcement,
+        title,
+        createdAt: new Date(),
+      };
+
+      const result = await announcementCollection.insertOne(newAnnouncement);
+      res.status(201).json({
+        success: true,
+        message: "Announcement added successfully",
+        announcementId: result.insertedId,
+      });
+    } catch (error) {
+      console.error("Error adding announcement:", error);
+    }
+  });
+
+  // get all announcements
+  app.get("/all-announcement", verifyJWT, async (req, res) => {
+    try {
+      const announcements = await announcementCollection.find({}).toArray();
+      res.status(200).json({ success: true, announcements });
+    } catch (error) {
+      console.error("Error fetching announcements:", error);
+    }
+  });
+
+  // delete a specific announcement
+  app.delete(
+    "/announcement/:announcementId",
+    verifyJWT,
+    verifyAdmin,
+    async (req, res) => {
       const { announcementId } = req.params;
       if (!announcementId) {
         return res
           .status(400)
-          .json({ success: false, message: "Post ID is required" });
+          .json({ success: false, message: "Announcement ID is required" });
       }
       try {
-        const result = await postCollections.deleteOne({
+        const result = await announcementCollection.deleteOne({
           _id: new ObjectId(announcementId),
         });
         if (result.deletedCount === 1) {
           res.status(200).json({
             success: true,
-            message: "Post deleted successfully",
+            message: "Announcement deleted successfully",
           });
         } else {
-          res.status(404).json({ success: false, message: "Post not found" });
+          res
+            .status(404)
+            .json({ success: false, message: "Announcement not found" });
         }
       } catch (error) {
-        console.error("Error deleting Post:", error);
+        console.error("Error deleting announcement:", error);
       }
-    });
+    }
+  );
 
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
-  } finally {
-    // await client.close();
-  }
+  // post a post for user
+  app.post("/post", verifyJWT, async (req, res) => {
+    const { announcement, title, userId, name } = req.body;
+    if (!announcement || !title) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Post is required" });
+    }
+    try {
+      const newAnnouncement = {
+        announcement,
+        title,
+        userId,
+        name,
+        createdAt: new Date(),
+      };
+
+      const result = await postCollections.insertOne(newAnnouncement);
+      res.status(201).json({
+        success: true,
+        message: "Post added successfully",
+        announcementId: result.insertedId,
+      });
+    } catch (error) {
+      console.error("Error adding post:", error);
+    }
+  });
+
+  // get post for specific user
+  app.get("/all-post/:userId", verifyJWT, async (req, res) => {
+    const { userId } = req.params;
+    try {
+      if (!userId) {
+        return res
+          .status(400)
+          .json({ success: false, message: "User ID is required" });
+      }
+      const announcements = await postCollections.find({ userId }).toArray();
+      res.status(200).json({ success: true, announcements });
+    } catch (error) {
+      console.error("Error fetching Posts :", error);
+    }
+  });
+  // get all post
+  app.get("/all-post", verifyJWT, async (req, res) => {
+    try {
+
+      const announcements = await postCollections.find({}).toArray();
+      res.status(200).json({ success: true, announcements });
+    } catch (error) {
+      console.error("Error fetching Posts :", error);
+    }
+  });
+
+  // delete a specific post
+  app.delete("/post/:announcementId", verifyJWT, async (req, res) => {
+    const { announcementId } = req.params;
+    if (!announcementId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Post ID is required" });
+    }
+    try {
+      const result = await postCollections.deleteOne({
+        _id: new ObjectId(announcementId),
+      });
+      if (result.deletedCount === 1) {
+        res.status(200).json({
+          success: true,
+          message: "Post deleted successfully",
+        });
+      } else {
+        res.status(404).json({ success: false, message: "Post not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting Post:", error);
+    }
+  });
+
+  await client.db("admin").command({ ping: 1 });
+  console.log(
+    "Pinged your deployment. You successfully connected to MongoDB!"
+  );
+} finally {
+  // await client.close();
+}
 }
 run().catch(console.dir);
 
