@@ -110,30 +110,31 @@ async function run() {
     app.use("/api/bkash/payment", require("./Routes/routes")(orderCollections));
 
     //traffic Count
-    app.post("/visit-count", async (req, res) => {
-      const { userId } = req.body;
-
-      if (!userId) {
-        return res.status(400).send("UserId is required");
+    app.put("/visit-count/:userId", async (req, res) => {
+      const { userId } = req.params;
+    
+      if (!ObjectId.isValid(userId)) {
+        return res.status(400).send("Invalid userId");
       }
-
+    
       try {
         const result = await userCollections.findOneAndUpdate(
-          { _id: new ObjectId(userId) }, 
+          { _id: new ObjectId(userId) },
           { $inc: { visitCount: 1 } },
-          { returnDocument: "after", upsert: true } 
+          { returnDocument: "after", upsert: true } // Create a new document if it doesn't exist
         );
-
+    
         if (!result.value) {
           return res.status(404).send("User not found");
         }
-
+    
         res.json({ visitCount: result.value.visitCount });
       } catch (error) {
-        console.error("Error updating visitCount:", error);
+        console.error("Error updating visit count:", error);
         res.status(500).send("Internal Server Error");
       }
     });
+    
 
     // Route to fetch all courses for a specific user
     app.get("/courses/student/:userId", async (req, res) => {
@@ -496,30 +497,28 @@ async function run() {
             whatsappLink,
             zipCode,
           } = user;
-          res
-            .status(200)
-            .send({
-              _id,
-              name,
-              password,
-              phone,
-              role,
-              subRole,
-              status,
-              tasks,
-              coins,
-              code,
-              level,
-              facebookLink,
-              address,
-              country,
-              district,
-              fatherContactNumber,
-              motherContactNumber,
-              telegramLink,
-              whatsappLink,
-              zipCode,
-            });
+          res.status(200).send({
+            _id,
+            name,
+            password,
+            phone,
+            role,
+            subRole,
+            status,
+            tasks,
+            coins,
+            code,
+            level,
+            facebookLink,
+            address,
+            country,
+            district,
+            fatherContactNumber,
+            motherContactNumber,
+            telegramLink,
+            whatsappLink,
+            zipCode,
+          });
         } else {
           res.status(404).send({ message: "User not found" });
         }
