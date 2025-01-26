@@ -112,29 +112,30 @@ async function run() {
     //traffic Count
     app.put("/visit-count/:userId", async (req, res) => {
       const { userId } = req.params;
-    
-      if (!ObjectId.isValid(userId)) {
-        return res.status(400).send("Invalid userId");
+
+      if (!userId) {
+        return res.status(400).send("userId not provided");
       }
-    
+
       try {
-        const result = await userCollections.findOneAndUpdate(
+        const updateResult = await userCollections.updateOne(
           { _id: new ObjectId(userId) },
           { $inc: { visitCount: 1 } },
-          { returnDocument: "after", upsert: true } // Create a new document if it doesn't exist
+          { upsert: true }
         );
-    
-        if (!result.value) {
+
+        if (updateResult.matchedCount === 0 && !updateResult.upsertedId) {
           return res.status(404).send("User not found");
         }
-    
-        res.json({ visitCount: result.value.visitCount });
+
+        const updatedUser = await userCollections.findOne({ _id: new ObjectId(userId) });
+
+        res.json({ visitCount: updatedUser.visitCount });
       } catch (error) {
         console.error("Error updating visit count:", error);
         res.status(500).send("Internal Server Error");
       }
     });
-    
 
     // Route to fetch all courses for a specific user
     app.get("/courses/student/:userId", async (req, res) => {
@@ -180,6 +181,7 @@ async function run() {
       }
       if (user.role === "subAdmin") {
         user.status = "pending";
+        user.balance = 50;
       }
 
       const result = await userCollections.insertOne(user);
@@ -345,15 +347,15 @@ async function run() {
         const update =
           action === "accept"
             ? {
-                $inc: { coins: parseInt(coin, 10) },
-                $set: {
-                  "tasks.$.taskStatus": "accepted",
-                  ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
-                },
-              }
+              $inc: { coins: parseInt(coin, 10) },
+              $set: {
+                "tasks.$.taskStatus": "accepted",
+                ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
+              },
+            }
             : {
-                $set: { "tasks.$.taskStatus": "rejected" },
-              };
+              $set: { "tasks.$.taskStatus": "rejected" },
+            };
 
         // Update the user
         const result = await userCollections.updateOne(query, update);
@@ -496,6 +498,7 @@ async function run() {
             telegramLink,
             whatsappLink,
             zipCode,
+            visitCount,
           } = user;
           res.status(200).send({
             _id,
@@ -518,6 +521,7 @@ async function run() {
             telegramLink,
             whatsappLink,
             zipCode,
+            visitCount,
           });
         } else {
           res.status(404).send({ message: "User not found" });
@@ -1093,6 +1097,9 @@ async function run() {
         console.error("Error deleting Post:", error);
       }
     });
+
+
+
 
     await client.db("admin").command({ ping: 1 });
     console.log(
