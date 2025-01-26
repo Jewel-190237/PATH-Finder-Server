@@ -109,6 +109,26 @@ async function run() {
     // BKash Payment
     app.use("/api/bkash/payment", require("./Routes/routes")(orderCollections));
 
+    // Create user (sign-up)
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { phone: user.phone };
+      const existingUser = await userCollections.findOne(query);
+
+      if (existingUser) {
+        return res
+          .status(409)
+          .send({ message: "User already exists. Please login." });
+      }
+      if (user.role === "subAdmin") {
+        user.status = "pending";
+        user.balance = 50;
+      }
+
+      const result = await userCollections.insertOne(user);
+      res.status(200).send(result);
+    });
+
     //traffic Count
     app.put("/visit-count/:userId", async (req, res) => {
       const { userId } = req.params;
@@ -168,24 +188,14 @@ async function run() {
       }
     });
 
-    // Create user (sign-up)
-    app.post("/users", async (req, res) => {
-      const user = req.body;
-      const query = { phone: user.phone };
-      const existingUser = await userCollections.findOne(query);
-
-      if (existingUser) {
-        return res
-          .status(409)
-          .send({ message: "User already exists. Please login." });
+    // get all orders
+    app.get("/orders",verifyJWT, async (req, res) => {
+      try {
+        const orders = await orderCollections.find().toArray();
+        res.status(200).send(orders);
+      } catch (error) {
+        res.status(500).send({ message: "Error fetching orders", error });
       }
-      if (user.role === "subAdmin") {
-        user.status = "pending";
-        user.balance = 50;
-      }
-
-      const result = await userCollections.insertOne(user);
-      res.status(200).send(result);
     });
 
     // Route to approve user status
@@ -499,6 +509,8 @@ async function run() {
             whatsappLink,
             zipCode,
             visitCount,
+            subAdmin,
+            balance
           } = user;
           res.status(200).send({
             _id,
@@ -522,6 +534,8 @@ async function run() {
             whatsappLink,
             zipCode,
             visitCount,
+            subAdmin,
+            balance
           });
         } else {
           res.status(404).send({ message: "User not found" });
@@ -531,19 +545,16 @@ async function run() {
       }
     });
 
+    //update profile for a specific user
     app.put("/users/:id", async (req, res) => {
-      const _id = req.params.id; // Extract ID from the route parameter
-      const updatedUser = req.body; // Extract updated user data from the request body
-
-      console.log("User ID:", _id, "Updated Data:", updatedUser);
+      const _id = req.params.id;
+      const updatedUser = req.body;
 
       try {
-        // Validate the ID format
         if (!ObjectId.isValid(_id)) {
           return res.status(400).send({ message: "Invalid user ID format." });
         }
 
-        // Validate the updated user data
         if (
           !updatedUser ||
           typeof updatedUser !== "object" ||
@@ -553,17 +564,9 @@ async function run() {
             .status(400)
             .send({ message: "Invalid user data provided." });
         }
-
-        // Remove `_id` from the `updatedUser` object to avoid conflicts
         delete updatedUser._id;
-
-        // Define the query to find the user by ID
         const query = { _id: new ObjectId(_id) };
-
-        // Use `$set` to update only the provided fields in the database
         const updateDocument = { $set: updatedUser };
-
-        // Perform the update operation
         const result = await userCollections.updateOne(query, updateDocument);
 
         if (result.modifiedCount > 0) {
@@ -599,12 +602,26 @@ async function run() {
     // update users name, phone and code
     app.put("/specific-users/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      const { name, phone, code } = req.body;
+      const { coins, balance } = req.body;
 
       const query = { _id: new ObjectId(id) };
-      const updateDoc = {
-        $set: { name, phone, code },
-      };
+
+      let updateDoc;
+
+      if (balance) {
+        updateDoc = {
+          $set: {
+            coins: coins,
+            balance: balance,
+          },
+        };
+      } else {
+        updateDoc = {
+          $set: {
+            coins: coins,
+          },
+        };
+      }
 
       try {
         const result = await userCollections.updateOne(query, updateDoc);
@@ -622,6 +639,7 @@ async function run() {
           .send({ success: false, message: "Error updating user", error });
       }
     });
+
 
     // Delete a specific user (admin-only access)
     app.delete("/users/:id", verifyJWT, verifyAdmin, async (req, res) => {
@@ -761,8 +779,8 @@ async function run() {
     //get course
     app.get("/courses", async (req, res) => {
       try {
-        const user = coursesCollections.find();
-        const result = await user.toArray();
+        const course = coursesCollections.find();
+        const result = await course.toArray();
         res.status(200).send(result);
       } catch (error) {
         res.status(500).send({ message: "Error fetching users", error });
