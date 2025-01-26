@@ -128,7 +128,9 @@ async function run() {
           return res.status(404).send("User not found");
         }
 
-        const updatedUser = await userCollections.findOne({ _id: new ObjectId(userId) });
+        const updatedUser = await userCollections.findOne({
+          _id: new ObjectId(userId),
+        });
 
         res.json({ visitCount: updatedUser.visitCount });
       } catch (error) {
@@ -347,15 +349,15 @@ async function run() {
         const update =
           action === "accept"
             ? {
-              $inc: { coins: parseInt(coin, 10) },
-              $set: {
-                "tasks.$.taskStatus": "accepted",
-                ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
-              },
-            }
+                $inc: { coins: parseInt(coin, 10) },
+                $set: {
+                  "tasks.$.taskStatus": "accepted",
+                  ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
+                },
+              }
             : {
-              $set: { "tasks.$.taskStatus": "rejected" },
-            };
+                $set: { "tasks.$.taskStatus": "rejected" },
+              };
 
         // Update the user
         const result = await userCollections.updateOne(query, update);
@@ -728,9 +730,11 @@ async function run() {
       }
     });
 
+
+
     app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
       try {
-        const { course_name, description, videos, course_price } = req.body;
+        const { course_name, description, videos, course_price,course_discount } = req.body;
         const file = req.file;
 
         if (!file) {
@@ -747,6 +751,7 @@ async function run() {
           thumbnail_image: file.path,
           videos: parsedVideos, // Store videos as an array
           course_price: parseFloat(course_price),
+          course_discount: parseFloat(course_discount),
           created_at: new Date(),
         };
 
@@ -787,35 +792,32 @@ async function run() {
       }
     });
 
-    app.put("/courses/:id", async (req, res) => {
+    app.put('/courses/:id', async (req, res) => {
+      const { id } = req.params;
+      const updateData = req.body;
+    
       try {
-        const { id } = req.params; // Extract course ID from URL parameter
-        const { course_name, course_price, description, videos } = req.body; // Extract data from the request body
-        console.log("id", id);
-        console.log("Request Body:", req.body); // Log request body for debugging
-        console.log("Videos:", videos); // Log videos field for debugging
-
-        const course = await Courses.findById(id); // Find the course by ID
-        if (!course) {
-          return res.status(404).json({ message: "Course not found" });
+        const updateFields = {
+          course_name: updateData.course_name,
+          description: updateData.description,
+          course_price: updateData.course_price,
+        };
+    
+        // Add thumbnail_image if provided
+        if (req.file) {
+          updateFields.thumbnail_image = req.file.path; // Assuming you use multer for file uploads
         }
-
-        // Update course fields
-        course.course_name = course_name || course.course_name;
-        course.course_price = course_price || course.course_price;
-        course.description = description || course.description;
-
-        // Update videos if provided
-        if (videos) {
-          course.videos = Array.isArray(videos) ? videos : [videos]; // Ensure videos is an array
+    
+        const result = await Course.findByIdAndUpdate(id, { $set: updateFields }, { new: true });
+    
+        if (!result) {
+          return res.status(404).send({ message: 'Course not found' });
         }
-
-        await course.save(); // Save the updated course
-
-        res.json({ message: "Course updated successfully", course });
+    
+        res.send(result);
       } catch (error) {
-        console.error("Error in PUT /courses/:id:", error); // Log the error for debugging
-        res.status(500).json({ message: "Server error", error: error.message });
+        console.error(error);
+        res.status(500).send({ message: 'Failed to update course' });
       }
     });
 
@@ -1097,9 +1099,6 @@ async function run() {
         console.error("Error deleting Post:", error);
       }
     });
-
-
-
 
     await client.db("admin").command({ ping: 1 });
     console.log(
