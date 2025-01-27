@@ -17,13 +17,14 @@ class PaymentController {
   };
 
   payment_create = async (req, res) => {
-    const { amount, userId, courseId, subAdminId } = req.body;
+    const { amount, userId, courseId, subAdminId, revenue } = req.body;
     try {
       const order = await this.orderCollections.insertOne({
         userId,
         amount,
         courseId,
         subAdminId,
+        revenue,
         status: "pending",
         createdAt: new Date(),
       });
