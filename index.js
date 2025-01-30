@@ -95,9 +95,6 @@ async function run() {
     const announcementCollection = client
       .db("PATH-FINDER")
       .collection("announcement");
-    const allocatedSeatCollections = client
-      .db("Bus-Ticket")
-      .collection("allocatedSeat");
 
     // BKash Payment
     app.use("/api/bkash/payment", require("./Routes/routes")(orderCollections));
