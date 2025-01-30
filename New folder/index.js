@@ -28,15 +28,6 @@ const storage = new CloudinaryStorage({
 });
 const upload = multer({ storage });
 // MiddleWare
-app.use(function (req, res, next) {
-  res.header("Access-Control-Allow-Origin", "*"); //* will allow from all cross domain
-  res.header(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept"
-  )
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-  next()
-});
 app.use(
   cors({
     origin: "http://localhost:5173",
