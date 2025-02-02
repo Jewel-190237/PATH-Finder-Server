@@ -31,8 +31,8 @@ const upload = multer({ storage });
 app.use(function (req, res, next) {
   res.header("Access-Control-Allow-Origin", "*"); //* will allow from all cross domain
   res.header(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept"
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
   )
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
   next()
@@ -101,12 +101,25 @@ async function run() {
     const orderCollections = client.db("PATH-FINDER").collection("orders");
     const projectCollections = client.db("PATH-FINDER").collection("projects");
     const postCollections = client.db("PATH-FINDER").collection("posts");
+    const offerCollections = client.db("PATH-FINDER").collection("offers");
     const announcementCollection = client
       .db("PATH-FINDER")
       .collection("announcement");
 
     // BKash Payment
-    app.use("/api/bkash/payment", require("./Routes/routes")(orderCollections));
+    app.use("/api/bkash/payment", require("./routes/routes")(orderCollections));
+
+    // post offer 
+    app.post("/offer", async (req, res) => {
+      const offer = req.body;
+      const result = await offerCollections.insertOne(offer);
+      res.send(result);
+    });
+    // get offer
+    app.get("/offer", async (req, res) => {
+      const result = await offerCollections.find().toArray();
+      res.send(result);
+    });
 
     // Create user (sign-up)
     app.post("/users", async (req, res) => {
@@ -190,7 +203,7 @@ async function run() {
     });
 
     // get all orders
-    app.get("/orders",verifyJWT, async (req, res) => {
+    app.get("/orders", verifyJWT, async (req, res) => {
       try {
         const orders = await orderCollections.find().toArray();
         res.status(200).send(orders);
@@ -278,13 +291,11 @@ async function run() {
     app.post("/add-task", verifyJWT, async (req, res) => {
       const { userId, taskName, taskDescription, coin } = req.body;
 
-      // Validate required fields
       if (!userId || !taskName || !taskDescription || !coin) {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
       try {
-        // Find user by ID
         const user = await userCollections.findOne({
           _id: new ObjectId(userId),
         });
@@ -293,19 +304,18 @@ async function run() {
           return res.status(404).json({ message: "User not found" });
         }
 
-        // Construct the new task
         const newTask = {
           _id: new ObjectId(),
           taskName,
           taskDescription,
           coin,
-          taskStatus: "pending", // Assign taskStatus here
+          taskStatus: "pending",
         };
 
-        // Add the task to the user's tasks array
+
         const result = await userCollections.updateOne(
           { _id: new ObjectId(userId) },
-          { $push: { tasks: newTask } } // Use $push for arrays
+          { $push: { tasks: newTask } }
         );
 
         if (result.modifiedCount === 1) {
@@ -336,7 +346,6 @@ async function run() {
           "tasks._id": new ObjectId(taskId),
         };
 
-        // Find the user to get the current coin count
         const user = await userCollections.findOne({
           _id: new ObjectId(userId),
         });
@@ -351,22 +360,20 @@ async function run() {
             ? existingCoins + parseInt(coin, 10)
             : existingCoins;
 
-        // Calculate the new level based on total coins
         const newLevel = Math.floor(newCoins / 100);
 
-        // Build the update operation
         const update =
           action === "accept"
             ? {
-                $inc: { coins: parseInt(coin, 10) },
-                $set: {
-                  "tasks.$.taskStatus": "accepted",
-                  ...(newLevel > 0 && { level: newLevel }), // Only set level if it's greater than 0
-                },
-              }
+              $inc: { coins: parseInt(coin, 10) },
+              $set: {
+                "tasks.$.taskStatus": "accepted",
+                ...(newLevel > 0 && { level: newLevel }),
+              },
+            }
             : {
-                $set: { "tasks.$.taskStatus": "rejected" },
-              };
+              $set: { "tasks.$.taskStatus": "rejected" },
+            };
 
         // Update the user
         const result = await userCollections.updateOne(query, update);
@@ -751,7 +758,7 @@ async function run() {
 
     app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
       try {
-        const { course_name, description, videos, course_price,course_discount } = req.body;
+        const { course_name, description, videos, course_price, course_discount } = req.body;
         const file = req.file;
 
         if (!file) {
@@ -812,25 +819,25 @@ async function run() {
     app.put('/courses/:id', async (req, res) => {
       const { id } = req.params;
       const updateData = req.body;
-    
+
       try {
         const updateFields = {
           course_name: updateData.course_name,
           description: updateData.description,
           course_price: updateData.course_price,
         };
-    
+
         // Add thumbnail_image if provided
         if (req.file) {
           updateFields.thumbnail_image = req.file.path; // Assuming you use multer for file uploads
         }
-    
+
         const result = await Course.findByIdAndUpdate(id, { $set: updateFields }, { new: true });
-    
+
         if (!result) {
           return res.status(404).send({ message: 'Course not found' });
         }
-    
+
         res.send(result);
       } catch (error) {
         console.error(error);
@@ -855,9 +862,9 @@ async function run() {
 
     // create project
     app.post("/add-new-project", async (req, res) => {
-      const { userId, ProjectName, problem, idea, solve, userName } = req.body;
+      const { userId, ProjectName, problem, idea, solve, userName, category } = req.body;
 
-      if (!userId || !ProjectName || !problem || !idea || !solve) {
+      if (!userId || !ProjectName || !problem || !idea || !solve || !category) {
         return res
           .status(400)
           .json({ success: false, message: "All fields are required" });
@@ -868,6 +875,7 @@ async function run() {
         problem,
         idea,
         solve,
+        category,
         userName,
         createdAt: new Date(),
       };
