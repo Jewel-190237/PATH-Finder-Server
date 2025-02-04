@@ -33,9 +33,9 @@ app.use(function (req, res, next) {
   res.header(
     "Access-Control-Allow-Headers",
     "Origin, X-Requested-With, Content-Type, Accept"
-  )
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-  next()
+  );
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  next();
 });
 app.use(
   cors({
@@ -93,7 +93,6 @@ const client = new MongoClient(uri, {
   },
 });
 
-
 async function run() {
   try {
     const userCollections = client.db("PATH-FINDER").collection("users");
@@ -109,7 +108,7 @@ async function run() {
     // BKash Payment
     app.use("/api/bkash/payment", require("./routes/routes")(orderCollections));
 
-    // post offer 
+    // post offer
     app.post("/offer", async (req, res) => {
       const offer = req.body;
       const result = await offerCollections.insertOne(offer);
@@ -139,6 +138,36 @@ async function run() {
 
       const result = await userCollections.insertOne(user);
       res.status(200).send(result);
+    });
+
+    // update user code
+    app.post("/generate-code/:id", async (req, res) => {
+      const { id } = req.params;
+      const { code } = req.body;
+
+      if (!id || !code) { 
+        return res.status(400).send("id or code not provided");
+      }
+
+      try {
+        const updateResult = await userCollections.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { code: code } },
+          { upsert: false }
+        );
+
+        if (updateResult.matchedCount === 0) {
+          return res.status(404).send("User not found");
+        }
+
+        const updatedUser = await userCollections.findOne({
+          _id: new ObjectId(id),
+        });
+        res.status(200).json(updatedUser);
+      } catch (error) {
+        console.error("Error updating user code:", error);
+        res.status(500).send("Internal Server Error");
+      }
     });
 
     //traffic Count
@@ -312,7 +341,6 @@ async function run() {
           taskStatus: "pending",
         };
 
-
         const result = await userCollections.updateOne(
           { _id: new ObjectId(userId) },
           { $push: { tasks: newTask } }
@@ -365,15 +393,15 @@ async function run() {
         const update =
           action === "accept"
             ? {
-              $inc: { coins: parseInt(coin, 10) },
-              $set: {
-                "tasks.$.taskStatus": "accepted",
-                ...(newLevel > 0 && { level: newLevel }),
-              },
-            }
+                $inc: { coins: parseInt(coin, 10) },
+                $set: {
+                  "tasks.$.taskStatus": "accepted",
+                  ...(newLevel > 0 && { level: newLevel }),
+                },
+              }
             : {
-              $set: { "tasks.$.taskStatus": "rejected" },
-            };
+                $set: { "tasks.$.taskStatus": "rejected" },
+              };
 
         // Update the user
         const result = await userCollections.updateOne(query, update);
@@ -518,7 +546,7 @@ async function run() {
             zipCode,
             visitCount,
             subAdmin,
-            balance
+            balance,
           } = user;
           res.status(200).send({
             _id,
@@ -543,7 +571,7 @@ async function run() {
             zipCode,
             visitCount,
             subAdmin,
-            balance
+            balance,
           });
         } else {
           res.status(404).send({ message: "User not found" });
@@ -647,7 +675,6 @@ async function run() {
           .send({ success: false, message: "Error updating user", error });
       }
     });
-
 
     // Delete a specific user (admin-only access)
     app.delete("/users/:id", verifyJWT, verifyAdmin, async (req, res) => {
@@ -754,11 +781,15 @@ async function run() {
       }
     });
 
-
-
     app.post("/courses", upload.single("thumbnail_image"), async (req, res) => {
       try {
-        const { course_name, description, videos, course_price, course_discount } = req.body;
+        const {
+          course_name,
+          description,
+          videos,
+          course_price,
+          course_discount,
+        } = req.body;
         const file = req.file;
 
         if (!file) {
@@ -816,7 +847,7 @@ async function run() {
       }
     });
 
-    app.put('/courses/:id', async (req, res) => {
+    app.put("/courses/:id", async (req, res) => {
       const { id } = req.params;
       const updateData = req.body;
 
@@ -832,16 +863,20 @@ async function run() {
           updateFields.thumbnail_image = req.file.path; // Assuming you use multer for file uploads
         }
 
-        const result = await Course.findByIdAndUpdate(id, { $set: updateFields }, { new: true });
+        const result = await Course.findByIdAndUpdate(
+          id,
+          { $set: updateFields },
+          { new: true }
+        );
 
         if (!result) {
-          return res.status(404).send({ message: 'Course not found' });
+          return res.status(404).send({ message: "Course not found" });
         }
 
         res.send(result);
       } catch (error) {
         console.error(error);
-        res.status(500).send({ message: 'Failed to update course' });
+        res.status(500).send({ message: "Failed to update course" });
       }
     });
 
@@ -862,7 +897,8 @@ async function run() {
 
     // create project
     app.post("/add-new-project", async (req, res) => {
-      const { userId, ProjectName, problem, idea, solve, userName, category } = req.body;
+      const { userId, ProjectName, problem, idea, solve, userName, category } =
+        req.body;
 
       if (!userId || !ProjectName || !problem || !idea || !solve || !category) {
         return res
