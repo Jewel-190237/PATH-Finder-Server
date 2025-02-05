@@ -106,7 +106,7 @@ async function run() {
       .collection("announcement");
 
     // BKash Payment
-    app.use("/api/bkash/payment", require("./Routes/routes")(orderCollections));
+    app.use("/api/bkash/payment", require("./routes/routes")(orderCollections));
 
     // Create user (sign-up)
     app.post("/users", async (req, res) => {

@@ -28,6 +28,15 @@ const storage = new CloudinaryStorage({
 });
 const upload = multer({ storage });
 // MiddleWare
+app.use(function (req, res, next) {
+  res.header("Access-Control-Allow-Origin", "*"); //* will allow from all cross domain
+  res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+  )
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+  next()
+});
 app.use(
   cors({
     origin: "http://localhost:5173",
@@ -95,12 +104,9 @@ async function run() {
     const announcementCollection = client
       .db("PATH-FINDER")
       .collection("announcement");
-    const allocatedSeatCollections = client
-      .db("Bus-Ticket")
-      .collection("allocatedSeat");
 
     // BKash Payment
-    app.use("/api/bkash/payment", require("./Routes/routes")(orderCollections));
+    app.use("/api/bkash/payment", require("./routes/routes")(orderCollections));
 
     // Create user (sign-up)
     app.post("/users", async (req, res) => {
