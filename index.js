@@ -39,7 +39,8 @@ app.use(function (req, res, next) {
 });
 app.use(
   cors({
-    origin: "https://pathxfinder.com",
+    // origin: "https://pathxfinder.com",
+    origin: "http://localhost:5173",
     credentials: true,
   })
 );
@@ -370,7 +371,7 @@ async function run() {
           return res.status(404).json({ message: "User not found" });
         }
 
-        const existingCoins = user.coins || 0;
+        const existingCoins = parseInt(user.coins) || 0;
         const newCoins =
           action === "accept"
             ? existingCoins + parseInt(coin, 10)
@@ -381,8 +382,9 @@ async function run() {
         const update =
           action === "accept"
             ? {
-                $inc: { coins: parseInt(coin, 10) },
+                // $inc: { coins: parseInt(coin, 10) },
                 $set: {
+                  coins: newCoins.toString(),
                   "tasks.$.taskStatus": "accepted",
                   ...(newLevel > 0 && { level: newLevel }),
                 },
