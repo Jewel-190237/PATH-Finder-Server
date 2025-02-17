@@ -292,6 +292,47 @@ async function run() {
       }
     });
 
+    // get course from orderCollection for profile
+    app.get("/task/student/:userId", async (req, res) => {
+      const { userId } = req.params;
+
+      try {
+        const orders = await orderCollections
+          .find({ userId, status: "paid" })
+          .toArray();
+        if (!orders.length) {
+          return res
+            .status(404)
+            .json({ message: "No orders found for this user" });
+        }
+
+        // Extract courseIds from orders
+        const courseIds = orders.map((order) => new ObjectId(order.courseId));
+
+        // Fetch full course details
+        const courses = await coursesCollections
+          .find({ _id: { $in: courseIds } })
+          .toArray();
+
+        // Attach completion progress to courses
+        const enrichedCourses = courses.map((course) => {
+          const order = orders.find(
+            (o) => o.courseId === course._id.toString()
+          );
+          return {
+            ...course,
+            complete: order?.complete || 0,
+            completeVideo: order?.completeVideo || [],
+          };
+        });
+
+        res.json(enrichedCourses);
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+        res.status(500).json({ message: "Failed to fetch courses" });
+      }
+    });
+
     // get all orders
     app.get("/orders", verifyJWT, async (req, res) => {
       try {
