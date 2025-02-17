@@ -108,6 +108,17 @@ async function run() {
 
     // BKash Payment
     app.use("/api/bkash/payment", require("./routes/routes")(orderCollections));
+    // post offer
+    app.post("/offer", async (req, res) => {
+      const offer = req.body;
+      const result = await offerCollections.insertOne(offer);
+      res.send(result);
+    });
+    // get offer
+    app.get("/offer", async (req, res) => {
+      const result = await offerCollections.find().toArray();
+      res.send(result);
+    });
 
     // Create user (sign-up)
     app.post("/users", async (req, res) => {
@@ -129,12 +140,73 @@ async function run() {
       res.status(200).send(result);
     });
 
+    // course progress
+    app.post("/course/complete", async (req, res) => {
+      try {
+        const { courseId, video, userId, videoLength } = req.body;
+        if (!courseId || !video || !userId || !videoLength) {
+          return res.status(400).json({ message: "Missing required fields" });
+        }
+
+        // Check if the order exists for the user and course
+        const order = await orderCollections.findOne({
+          userId,
+          courseId,
+          status: "paid",
+        });
+
+        if (!order) {
+          return res.status(404).json({ message: "Order not found" });
+        }
+
+        // Check if the video exists in the course
+        const course = await coursesCollections.findOne({
+          _id: new ObjectId(courseId),
+        });
+        if (!course || !course.videos.includes(video)) {
+          return res.status(400).json({ message: "Invalid video or course" });
+        }
+
+        let completeVideos = order.completeVideo || []; // Existing completed videos
+        const isAlreadyCompleted = completeVideos.some(
+          (v) => v.video === video && v.userId === userId
+        );
+
+        if (!isAlreadyCompleted) {
+          // Calculate completion progress
+          const progressIncrement = (1 / videoLength) * 100;
+          const newProgress = (order.complete || 0) + progressIncrement;
+
+          completeVideos.push({ video, userId });
+
+          // Update the order with the new progress and completed videos
+          await orderCollections.updateOne(
+            { _id: order._id },
+            {
+              $set: { complete: newProgress },
+              $push: { completeVideo: { video, userId } },
+            }
+          );
+
+          return res.json({
+            message: "Course progress updated",
+            progress: newProgress,
+          });
+        } else {
+          return res.json({ message: "Video already completed" });
+        }
+      } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
     // update user code
     app.post("/generate-code/:id", async (req, res) => {
       const { id } = req.params;
       const { code } = req.body;
 
-      if (!id || !code) { 
+      if (!id || !code) {
         return res.status(400).send("id or code not provided");
       }
 
