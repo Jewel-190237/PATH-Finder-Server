@@ -39,7 +39,7 @@ app.use(function (req, res, next) {
 });
 app.use(
   cors({
-    origin: "https://pathxfinder.com",
+    origin: "http://localhost:5173",
     credentials: true,
   })
 );
